@@ -1,0 +1,49 @@
+@host = http://localhost:3000
+
+### Create a product
+POST {{host}}/products
+Content-Type: application/json
+
+{
+  "productCode": "SKU-000000001",
+  "description": "Parafuso sextavado 12mm",
+  "initialQuantity": 10
+}
+
+### Create a product without initial stock
+POST {{host}}/products
+Content-Type: application/json
+
+{
+  "productCode": "SKU-000000002",
+  "description": "Porca sextavada 12mm"
+}
+
+### Rejected - fractional quantity
+POST {{host}}/products
+Content-Type: application/json
+
+{
+  "productCode": "SKU-000000003",
+  "description": "Arruela lisa",
+  "initialQuantity": 0.1
+}
+
+### Rejected - missing fields
+POST {{host}}/products
+Content-Type: application/json
+
+{}
+
+### Liveness
+GET {{host}}/health/live
+
+### Readiness
+GET {{host}}/health/ready
+
+### OpenAPI document
+GET {{host}}/openapi/v1.json
+Accept: application/json
+
+### Scalar reference
+GET {{host}}/scalar/v1
