@@ -1,8 +1,10 @@
+using Application.Products.ListProducts;
 using Domain.Common;
 using Domain.Product;
 using Domain.Stocks;
 using Domain.Stocks.Transactions;
 using Infrastructure.Persistence;
+using Infrastructure.Persistence.Queries;
 using Infrastructure.Persistence.Repositories;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
@@ -33,6 +35,8 @@ public static class DependencyInjection
         services.AddScoped<IProductRepository, ProductRepository>();
         services.AddScoped<IStockRepository, StockRepository>();
         services.AddScoped<IEntityReferenceRepository, EntityReferenceRepository>();
+
+        services.AddScoped<IProductReadRepository, ProductReadRepository>();
 
         return services;
     }

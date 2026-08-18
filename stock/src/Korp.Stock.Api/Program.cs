@@ -1,5 +1,5 @@
-using Api.Endpoints;
-using Api.Extensions;
+using Api.Endpoints.Products;
+using Api.Endpoints.Products.Create;
 using Application;
 using FluentValidation;
 using Infrastructure;

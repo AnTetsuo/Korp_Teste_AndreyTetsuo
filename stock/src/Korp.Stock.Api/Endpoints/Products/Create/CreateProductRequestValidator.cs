@@ -1,6 +1,6 @@
 using FluentValidation;
 
-namespace Api.Endpoints;
+namespace Api.Endpoints.Products.Create;
 
 public sealed class CreateProductRequestValidator : AbstractValidator<CreateProductRequest>
 {

@@ -1,4 +1,5 @@
 using Api.Endpoints;
+using Api.Endpoints.Products.Create;
 using FluentValidation.TestHelper;
 
 namespace UnitTests.ApiTests;

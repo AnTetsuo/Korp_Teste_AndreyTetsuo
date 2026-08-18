@@ -1,6 +1,6 @@
 using Application.Products.CreateProduct;
 
-namespace Api.Endpoints;
+namespace Api.Endpoints.Products.Create;
 
 public sealed record CreateProductRequest(
     string ProductCode,

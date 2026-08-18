@@ -1,7 +1,10 @@
+using Api.Endpoints.Products.Create;
+using Api.Endpoints.Products.List;
 using Api.Extensions;
 using Application.Products.CreateProduct;
+using Application.Products.ListProducts;
 
-namespace Api.Endpoints;
+namespace Api.Endpoints.Products;
 
 public static class ProductEndpoints
 {
@@ -27,5 +30,20 @@ public static class ProductEndpoints
             .Produces<CreateProductResponse>(StatusCodes.Status201Created)
             .ProducesValidationProblem()
             .ProducesProblem(StatusCodes.Status409Conflict);
+
+        group.MapGet("/", async (
+                [AsParameters] ListProductsRequest request,
+                ListProductsHandler handler,
+                CancellationToken cancellationToken) =>
+            {
+                var result = await handler.HandleAsync(request.ToQuery(), cancellationToken);
+
+                return result.ToHttpResult(Results.Ok);
+            })
+            .AddEndpointFilter<ValidationFilter<ListProductsRequest>>()
+            .WithName("ListProducts")
+            .WithSummary("Lists products with their current stock balance.")
+            .Produces<ListProductsResponse>()
+            .ProducesValidationProblem();
     }
 }
