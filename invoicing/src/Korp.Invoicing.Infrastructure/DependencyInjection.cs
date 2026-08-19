@@ -1,6 +1,8 @@
+using Application.Invoices.ListInvoices;
 using Domain.Common;
 using Domain.Invoices;
 using Infrastructure.Persistence;
+using Infrastructure.Persistence.Queries;
 using Infrastructure.Persistence.Repositories;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
@@ -29,6 +31,8 @@ public static class DependencyInjection
             .AddDbContextCheck<InvoicingDbContext>("database", tags: ["ready"]);
 
         services.AddScoped<IInvoiceRepository, InvoiceRepository>();
+
+        services.AddScoped<IInvoiceReadRepository, InvoiceReadRepository>();
 
         return services;
     }
