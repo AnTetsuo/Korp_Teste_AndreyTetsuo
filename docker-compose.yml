@@ -1,16 +1,19 @@
 services:
-  stock-db:
+  korp-db:
     image: postgres:18-alpine
-    container_name: stock-db
+    container_name: korp-db
     restart: unless-stopped
     environment:
       POSTGRES_DB: ${POSTGRES_DB:?missing POSTGRES_DB - copy .env.example to .env}
       POSTGRES_USER: ${POSTGRES_USER:?missing POSTGRES_USER - copy .env.example to .env}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?missing POSTGRES_PASSWORD - copy .env.example to .env}
+      STOCK_POSTGRES_DB: ${STOCK_POSTGRES_DB:?missing STOCK_POSTGRES_DB - copy .env.example to .env}
+      INVOICING_POSTGRES_DB: ${INVOICING_POSTGRES_DB:?missing INVOICING_POSTGRES_DB - copy .env.example to .env}
     ports:
       - "${POSTGRES_PORT:-5432}:5432"
     volumes:
-      - stock-pgdata:/var/lib/postgresql
+      - korp-pgdata:/var/lib/postgresql
+      - ./docker/postgres-init:/docker-entrypoint-initdb.d:ro
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
       interval: 5s
@@ -24,14 +27,30 @@ services:
     container_name: stock-api
     restart: unless-stopped
     depends_on:
-      stock-db:
+      korp-db:
         condition: service_healthy
     environment:
       ASPNETCORE_ENVIRONMENT: ${ASPNETCORE_ENVIRONMENT:-Production}
       ApiDocs__Enabled: ${API_DOCS_ENABLED:-false}
-      ConnectionStrings__Default: Host=stock-db;Port=5432;Database=${POSTGRES_DB};Username=${POSTGRES_USER};Password=${POSTGRES_PASSWORD}
+      ConnectionStrings__Stock: Host=korp-db;Port=5432;Database=${STOCK_POSTGRES_DB};Username=${POSTGRES_USER};Password=${POSTGRES_PASSWORD};Search Path=stock
     ports:
-      - "${API_PORT:-3000}:8080"
+      - "${STOCK_API_PORT:-3000}:8080"
+
+  invoicing-api:
+    build:
+      context: ./invoicing
+      dockerfile: Dockerfile
+    container_name: invoicing-api
+    restart: unless-stopped
+    depends_on:
+      korp-db:
+        condition: service_healthy
+    environment:
+      ASPNETCORE_ENVIRONMENT: ${ASPNETCORE_ENVIRONMENT:-Production}
+      ApiDocs__Enabled: ${API_DOCS_ENABLED:-false}
+      ConnectionStrings__Invoicing: Host=korp-db;Port=5432;Database=${INVOICING_POSTGRES_DB};Username=${POSTGRES_USER};Password=${POSTGRES_PASSWORD};Search Path=invoicing
+    ports:
+      - "${INVOICING_API_PORT:-3001}:8080"
 
 volumes:
-  stock-pgdata:
+  korp-pgdata:

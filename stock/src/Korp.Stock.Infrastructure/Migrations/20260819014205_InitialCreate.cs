@@ -11,8 +11,12 @@ namespace Infrastructure.Migrations
         /// <inheritdoc />
         protected override void Up(MigrationBuilder migrationBuilder)
         {
+            migrationBuilder.EnsureSchema(
+                name: "stock");
+
             migrationBuilder.CreateTable(
                 name: "entity_references",
+                schema: "stock",
                 columns: table => new
                 {
                     id = table.Column<Guid>(type: "uuid", nullable: false),
@@ -26,6 +30,7 @@ namespace Infrastructure.Migrations
 
             migrationBuilder.CreateTable(
                 name: "products",
+                schema: "stock",
                 columns: table => new
                 {
                     id = table.Column<Guid>(type: "uuid", nullable: false),
@@ -42,6 +47,7 @@ namespace Infrastructure.Migrations
 
             migrationBuilder.CreateTable(
                 name: "stocks",
+                schema: "stock",
                 columns: table => new
                 {
                     id = table.Column<Guid>(type: "uuid", nullable: false),
@@ -58,6 +64,7 @@ namespace Infrastructure.Migrations
                     table.ForeignKey(
                         name: "fk_stocks_products_product_id",
                         column: x => x.product_id,
+                        principalSchema: "stock",
                         principalTable: "products",
                         principalColumn: "id",
                         onDelete: ReferentialAction.Restrict);
@@ -65,6 +72,7 @@ namespace Infrastructure.Migrations
 
             migrationBuilder.CreateTable(
                 name: "transactions",
+                schema: "stock",
                 columns: table => new
                 {
                     id = table.Column<Guid>(type: "uuid", nullable: false),
@@ -81,12 +89,14 @@ namespace Infrastructure.Migrations
                     table.ForeignKey(
                         name: "fk_transactions_entity_references_reference_id",
                         column: x => x.reference_id,
+                        principalSchema: "stock",
                         principalTable: "entity_references",
                         principalColumn: "id",
                         onDelete: ReferentialAction.Restrict);
                     table.ForeignKey(
                         name: "fk_transactions_stocks_stock_id",
                         column: x => x.stock_id,
+                        principalSchema: "stock",
                         principalTable: "stocks",
                         principalColumn: "id",
                         onDelete: ReferentialAction.Cascade);
@@ -94,23 +104,27 @@ namespace Infrastructure.Migrations
 
             migrationBuilder.CreateIndex(
                 name: "ix_products_product_code",
+                schema: "stock",
                 table: "products",
                 column: "product_code",
                 unique: true);
 
             migrationBuilder.CreateIndex(
                 name: "ix_stocks_product_id",
+                schema: "stock",
                 table: "stocks",
                 column: "product_id",
                 unique: true);
 
             migrationBuilder.CreateIndex(
                 name: "ix_transactions_reference_id",
+                schema: "stock",
                 table: "transactions",
                 column: "reference_id");
 
             migrationBuilder.CreateIndex(
                 name: "ix_transactions_stock_id_created_at",
+                schema: "stock",
                 table: "transactions",
                 columns: new[] { "stock_id", "created_at" });
         }
@@ -119,16 +133,20 @@ namespace Infrastructure.Migrations
         protected override void Down(MigrationBuilder migrationBuilder)
         {
             migrationBuilder.DropTable(
-                name: "transactions");
+                name: "transactions",
+                schema: "stock");
 
             migrationBuilder.DropTable(
-                name: "entity_references");
+                name: "entity_references",
+                schema: "stock");
 
             migrationBuilder.DropTable(
-                name: "stocks");
+                name: "stocks",
+                schema: "stock");
 
             migrationBuilder.DropTable(
-                name: "products");
+                name: "products",
+                schema: "stock");
         }
     }
 }

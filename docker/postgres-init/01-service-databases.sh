@@ -1,0 +1,13 @@
+#!/bin/bash
+set -e
+
+psql -v ON_ERROR_STOP=1 --username "$POSTGRES_USER" --dbname "$POSTGRES_DB" <<-EOSQL
+    CREATE DATABASE "$STOCK_POSTGRES_DB";
+    CREATE DATABASE "$INVOICING_POSTGRES_DB";
+EOSQL
+
+psql -v ON_ERROR_STOP=1 --username "$POSTGRES_USER" --dbname "$STOCK_POSTGRES_DB" \
+    -c 'CREATE SCHEMA IF NOT EXISTS stock;'
+
+psql -v ON_ERROR_STOP=1 --username "$POSTGRES_USER" --dbname "$INVOICING_POSTGRES_DB" \
+    -c 'CREATE SCHEMA IF NOT EXISTS invoicing;'

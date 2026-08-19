@@ -18,10 +18,10 @@ public static class DependencyInjection
         this IServiceCollection services,
         IConfiguration configuration)
     {
-        var connectionString = configuration.GetConnectionString("Default")
+        var connectionString = configuration.GetConnectionString("Stock")
             ?? throw new InvalidOperationException(
-                "Connection string 'Default' is not configured. Set it via user secrets or " +
-                "the ConnectionStrings__Default environment variable.");
+                "Connection string 'Stock' is not configured. Set it via user secrets or " +
+                "the ConnectionStrings__Stock environment variable.");
 
         services.AddDbContext<StockDbContext>(options => options
             .UseNpgsql(connectionString)

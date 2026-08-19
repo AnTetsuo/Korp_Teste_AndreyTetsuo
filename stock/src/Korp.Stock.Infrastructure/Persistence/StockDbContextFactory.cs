@@ -11,8 +11,8 @@ internal sealed class StockDbContextFactory : IDesignTimeDbContextFactory<StockD
         EnvironmentFile.Load();
 
         var connectionString =
-            Environment.GetEnvironmentVariable("ConnectionStrings__Default")
-            ?? "Host=localhost;Port=5432;Database=stock;Username=stock";
+            Environment.GetEnvironmentVariable("ConnectionStrings__Stock")
+            ?? "Host=localhost;Port=5432;Database=stock;Username=korp;Search Path=stock";
 
         var options = new DbContextOptionsBuilder<StockDbContext>()
             .UseNpgsql(connectionString)
