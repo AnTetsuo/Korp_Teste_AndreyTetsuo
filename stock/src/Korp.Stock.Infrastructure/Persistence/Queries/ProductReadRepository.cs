@@ -8,7 +8,9 @@ internal sealed class ProductReadRepository(StockDbContext context) : IProductRe
 {
     private const string SelectClause =
         """
-        SELECT p.description,
+        SELECT 
+               p.id,
+               p.description,
                p.product_code,
                p.created_at,
                p.updated_at,
@@ -57,6 +59,7 @@ internal sealed class ProductReadRepository(StockDbContext context) : IProductRe
 
         var products = rows
             .Select(row => new UnitOfProduct(
+                row.Id,
                 row.Description,
                 row.ProductCode,
                 row.CreatedAt,
@@ -85,6 +88,7 @@ internal sealed class ProductReadRepository(StockDbContext context) : IProductRe
 
 internal sealed class ProductListRow
 {
+    public Guid Id { get; set; }
     public string Description { get; set; } = string.Empty;
     public string ProductCode { get; set; } = string.Empty;
     public DateTime CreatedAt { get; set; }

@@ -12,6 +12,7 @@ public sealed record ListProductsResponse(
 }
 
 public sealed record UnitOfProduct(
+    Guid Id,
     string Description,
     string ProductCode,
     DateTime DateCreated,
