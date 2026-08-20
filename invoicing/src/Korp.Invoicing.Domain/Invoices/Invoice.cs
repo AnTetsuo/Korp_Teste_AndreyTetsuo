@@ -63,6 +63,18 @@ public class Invoice
         return invoice;
     }
 
+    public Result BeginPrinting()
+    {
+        if (Status != InvoiceStatus.Open)
+            return Result.Conflict(
+                $"Only an open invoice can be printed; invoice {Number} is {Status}.");
+
+        Status = InvoiceStatus.Processing;
+        UpdatedAt = DateTime.UtcNow;
+
+        return Result.Success();
+    }
+
     private static void ValidateItem(
         InvoiceItemDto item,
         int index,

@@ -1,5 +1,6 @@
 using Application.Invoices.CreateInvoice;
 using Application.Invoices.ListInvoices;
+using Application.Invoices.PrintInvoice;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace Application;
@@ -10,6 +11,7 @@ public static class DependencyInjection
     {
         services.AddScoped<CreateInvoiceHandler>();
         services.AddScoped<ListInvoicesHandler>();
+        services.AddScoped<PrintInvoiceHandler>();
 
         return services;
     }

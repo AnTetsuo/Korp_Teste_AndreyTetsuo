@@ -4,6 +4,7 @@ using Application;
 using FluentValidation;
 using Infrastructure;
 using Infrastructure.Configuration;
+using JasperFx;
 using Microsoft.AspNetCore.Diagnostics.HealthChecks;
 using Scalar.AspNetCore;
 using Serilog;
@@ -65,11 +66,13 @@ try
 
     app.MapInvoiceEndpoints();
 
-    app.Run();
+    return await app.RunJasperFxCommands(args);
 }
 catch (Exception ex) when (ex is not HostAbortedException)
 {
     Log.Fatal(ex, "Korp Invoicing API terminated unexpectedly");
+
+    return 1;
 }
 finally
 {

@@ -1,8 +1,10 @@
 using Api.Endpoints.Invoices.Create;
 using Api.Endpoints.Invoices.List;
+using Api.Endpoints.Invoices.Print;
 using Api.Extensions;
 using Application.Invoices.CreateInvoice;
 using Application.Invoices.ListInvoices;
+using Application.Invoices.PrintInvoice;
 
 namespace Api.Endpoints.Invoices;
 
@@ -44,5 +46,29 @@ public static class InvoiceEndpoints
             .WithSummary("Lists invoices with their line counts and totals.")
             .Produces<ListInvoicesResponse>()
             .ProducesValidationProblem();
+
+        group.MapPost("/{id}/print", async (
+                [AsParameters] PrintInvoiceRequest request,
+                PrintInvoiceHandler handler,
+                CancellationToken cancellationToken) =>
+            {
+                var result = await handler.HandleAsync(request.ToCommand(), cancellationToken);
+
+                return result.ToHttpResult(response => Results.Accepted(
+                    $"/invoices/{response.Id}", response));
+            })
+            .AddEndpointFilter<ValidationFilter<PrintInvoiceRequest>>()
+            .WithName("PrintInvoice")
+            .WithSummary("Moves an invoice to Processing and asks stock to draw its lines down.")
+            .WithDescription(
+                "202 Accepted, not 200: the balances have not moved yet. The status change and " +
+                "the outgoing message commit as one transaction, so the request is durable the " +
+                "moment it returns — but stock applies it asynchronously, and the invoice reaches " +
+                "Closed only when stock replies. Poll GET /invoices/{id} while the status is " +
+                "Processing. 409 if the invoice is not Open, including a double-clicked Imprimir.")
+            .Produces<PrintInvoiceResponse>(StatusCodes.Status202Accepted)
+            .ProducesValidationProblem()
+            .ProducesProblem(StatusCodes.Status404NotFound)
+            .ProducesProblem(StatusCodes.Status409Conflict);
     }
 }

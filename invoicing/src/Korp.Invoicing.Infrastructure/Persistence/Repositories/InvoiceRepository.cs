@@ -5,6 +5,11 @@ namespace Infrastructure.Persistence.Repositories;
 
 internal sealed class InvoiceRepository(InvoicingDbContext context) : IInvoiceRepository
 {
+    public Task<Invoice?> GetByIdAsync(Guid id, CancellationToken cancellationToken = default) =>
+        context.Invoices
+            .Include(i => i.Items)
+            .FirstOrDefaultAsync(i => i.Id == id, cancellationToken);
+
     public void Add(Invoice invoice) => context.Invoices.Add(invoice);
 
     public async Task<long> NextNumberAsync(CancellationToken cancellationToken = default)

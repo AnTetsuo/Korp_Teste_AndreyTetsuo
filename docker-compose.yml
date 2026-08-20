@@ -20,6 +20,25 @@ services:
       timeout: 5s
       retries: 10
 
+  rabbitmq:
+    image: rabbitmq:4-management
+    container_name: korp-rabbitmq
+    restart: unless-stopped
+    environment:
+      RABBITMQ_DEFAULT_USER: ${RABBITMQ_USER:?missing RABBITMQ_USER - copy .env.example to .env}
+      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASSWORD:?missing RABBITMQ_PASSWORD - copy .env.example to .env}
+    ports:
+      - "${RABBITMQ_PORT:-5672}:5672"
+      - "${RABBITMQ_MANAGEMENT_PORT:-15672}:15672"
+    volumes:
+      - korp-rabbitdata:/var/lib/rabbitmq
+    healthcheck:
+      test: ["CMD-SHELL", "rabbitmq-diagnostics -q ping"]
+      interval: 10s
+      timeout: 10s
+      retries: 10
+      start_period: 30s
+
   stock-api:
     build:
       context: ./stock
@@ -45,12 +64,20 @@ services:
     depends_on:
       korp-db:
         condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
     environment:
       ASPNETCORE_ENVIRONMENT: ${ASPNETCORE_ENVIRONMENT:-Production}
       ApiDocs__Enabled: ${API_DOCS_ENABLED:-false}
       ConnectionStrings__Invoicing: Host=korp-db;Port=5432;Database=${INVOICING_POSTGRES_DB};Username=${POSTGRES_USER};Password=${POSTGRES_PASSWORD};Search Path=invoicing
+      # Inside the network the broker host is the service name, never localhost.
+      RabbitMq__Host: rabbitmq
+      RabbitMq__Port: 5672
+      RabbitMq__User: ${RABBITMQ_USER}
+      RabbitMq__Password: ${RABBITMQ_PASSWORD}
     ports:
       - "${INVOICING_API_PORT:-3001}:8080"
 
 volumes:
   korp-pgdata:
+  korp-rabbitdata:

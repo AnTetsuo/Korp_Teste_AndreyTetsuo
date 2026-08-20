@@ -184,4 +184,58 @@ public class InvoiceTests
             () => result.ValidationErrors.ShouldContain(e => e.Field == "items[0].quantity"),
             () => result.ValidationErrors.ShouldContain(e => e.Field == "items[1].productCode"));
     }
+
+    [Fact]
+    public void BeginPrinting_FromOpen_MovesToProcessing()
+    {
+        var invoice = Invoice.Open(1, [Item()]).Value;
+
+        var result = invoice.BeginPrinting();
+
+        result.ShouldSatisfyAllConditions(
+            () => result.IsSuccess.ShouldBeTrue(),
+            () => invoice.Status.ShouldBe(InvoiceStatus.Processing));
+    }
+
+    [Fact]
+    public void BeginPrinting_RestampsUpdatedAt()
+    {
+        var invoice = Invoice.Open(1, [Item()]).Value;
+        invoice.UpdatedAt = DateTime.UtcNow.AddDays(-1);
+
+        invoice.BeginPrinting();
+
+        invoice.ShouldSatisfyAllConditions(
+            () => invoice.UpdatedAt.ShouldBeGreaterThan(DateTime.UtcNow.AddMinutes(-1)),
+            () => invoice.UpdatedAt.Kind.ShouldBe(DateTimeKind.Utc));
+    }
+
+    [Theory]
+    [InlineData(InvoiceStatus.Processing)]
+    [InlineData(InvoiceStatus.Closed)]
+    public void BeginPrinting_FromAnythingButOpen_IsConflict(InvoiceStatus status)
+    {
+        var invoice = Invoice.Open(1, [Item()]).Value;
+        invoice.Status = status;
+
+        var result = invoice.BeginPrinting();
+
+        result.ShouldSatisfyAllConditions(
+            () => result.IsSuccess.ShouldBeFalse(),
+            () => result.Status.ShouldBe(ResultStatus.Conflict),
+            () => result.ErrorMessage.ShouldNotBeNull().ShouldContain(status.ToString()));
+    }
+
+    [Fact]
+    public void BeginPrinting_Twice_IsConflictAndLeavesProcessing()
+    {
+        var invoice = Invoice.Open(1, [Item()]).Value;
+        invoice.BeginPrinting();
+
+        var second = invoice.BeginPrinting();
+
+        second.ShouldSatisfyAllConditions(
+            () => second.Status.ShouldBe(ResultStatus.Conflict),
+            () => invoice.Status.ShouldBe(InvoiceStatus.Processing));
+    }
 }
