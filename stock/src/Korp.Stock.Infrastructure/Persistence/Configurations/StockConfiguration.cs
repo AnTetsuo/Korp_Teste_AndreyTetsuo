@@ -29,7 +29,7 @@ internal sealed class StockConfiguration : IEntityTypeConfiguration<Stock>
             .OnDelete(DeleteBehavior.Restrict);
 
         builder.HasMany(s => s.Transactions)
-            .WithOne()
+            .WithOne(t => t.Stock)
             .HasForeignKey(t => t.StockId)
             .OnDelete(DeleteBehavior.Cascade);
 

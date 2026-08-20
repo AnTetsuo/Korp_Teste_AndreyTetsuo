@@ -10,7 +10,10 @@ public class Transaction
     public int Quantity { get; set; }
     public Guid? ReferenceId { get; set; }
     public DateTime CreatedAt { get; set; }
-
+    
+    public EntityReference? EntityReference { get; set; }
+    public Stock Stock { get; set; } = null!;
+    
     public int SignedQuantity => TransactionType switch
     {
         TransactionType.InvoiceOutput => -Quantity,

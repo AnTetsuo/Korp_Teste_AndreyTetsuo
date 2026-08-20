@@ -26,7 +26,7 @@ internal sealed class TransactionConfiguration : IEntityTypeConfiguration<Transa
 
         builder.HasIndex(t => new { t.StockId, t.CreatedAt });
 
-        builder.HasOne<EntityReference>()
+        builder.HasOne(t => t.EntityReference)
             .WithMany()
             .HasForeignKey(t => t.ReferenceId)
             .OnDelete(DeleteBehavior.Restrict);
