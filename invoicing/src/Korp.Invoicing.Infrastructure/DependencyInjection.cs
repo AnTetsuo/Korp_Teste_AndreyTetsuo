@@ -76,7 +76,7 @@ public static class DependencyInjection
                 .AutoProvision();
 
             options.PublishMessage<InvoicePrintRequested>()
-                .ToRabbitQueue(MessagingConstants.StockConsumptionQueue);
+                .ToRabbitQueue(MessagingConstants.StockOperationQueue);
 
             options.Policies.UseDurableOutboxOnAllSendingEndpoints();
         });

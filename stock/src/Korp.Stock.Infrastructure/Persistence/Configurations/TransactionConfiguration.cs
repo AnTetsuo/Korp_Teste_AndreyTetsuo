@@ -13,11 +13,15 @@ internal sealed class TransactionConfiguration : IEntityTypeConfiguration<Transa
 
         builder.HasKey(t => t.Id);
 
+        builder.Property(t => t.Id).ValueGeneratedNever();
+
         builder.Property(t => t.TransactionType)
             .HasConversion<int>()
             .IsRequired();
 
         builder.Property(t => t.Quantity).IsRequired();
+
+        builder.Ignore(t => t.SignedQuantity);
         builder.Property(t => t.CreatedAt).IsRequired();
 
         builder.HasIndex(t => new { t.StockId, t.CreatedAt });

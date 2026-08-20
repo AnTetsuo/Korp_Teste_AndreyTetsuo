@@ -18,11 +18,12 @@ public class Stock
 
     public static Result<Stock> Init(Guid productId, int quantity, Guid? referenceId = null)
     {
-        if (productId == Guid.Empty)
-            return Result<Stock>.Invalid(nameof(productId), "Product id is required.");
+        var errors = new ValidationErrors()
+            .RequireId(productId, nameof(productId), "Product id")
+            .Require(quantity >= 0, nameof(quantity), "Initial quantity cannot be negative.");
 
-        if (quantity < 0)
-            return Result<Stock>.Invalid(nameof(quantity), "Initial quantity cannot be negative.");
+        if (errors.Any)
+            return Result<Stock>.Invalid(errors.ToArray());
 
         var now = DateTime.UtcNow;
 
@@ -40,5 +41,30 @@ public class Stock
                 stock.Id, quantity, TransactionType.Initial, referenceId));
 
         return stock;
+    }
+
+    public Result<Transaction> Operate(int quantity, Guid entityReferenceId)
+    {
+        var errors = new ValidationErrors()
+            .RequirePositive(quantity, nameof(quantity), "Operation quantity")
+            .Require(entityReferenceId != Guid.Empty, nameof(entityReferenceId),
+                "An operation must name the reference that issued it.");
+
+        if (errors.Any)
+            return Result<Transaction>.Invalid(errors.ToArray());
+
+        if (Quantity < quantity)
+            return Result<Transaction>.Conflict(
+                $"Insufficient balance: {Quantity} available, {quantity} requested.");
+
+        Quantity -= quantity;
+        UpdatedAt = DateTime.UtcNow;
+
+        var movement = Transaction.RecordMovement(
+            Id, quantity, TransactionType.InvoiceOutput, entityReferenceId);
+
+        _transactions.Add(movement);
+
+        return movement;
     }
 }

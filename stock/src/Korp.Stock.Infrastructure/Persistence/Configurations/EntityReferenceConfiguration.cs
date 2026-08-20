@@ -12,10 +12,14 @@ internal sealed class EntityReferenceConfiguration : IEntityTypeConfiguration<En
 
         builder.HasKey(e => e.Id);
 
+        builder.Property(e => e.Id).ValueGeneratedNever();
+
         builder.Property(e => e.ReferenceId).IsRequired();
 
         builder.Property(e => e.EntityType)
             .HasConversion<int>()
             .IsRequired();
+
+        builder.HasIndex(e => new { e.EntityType, e.ReferenceId }).IsUnique();
     }
 }

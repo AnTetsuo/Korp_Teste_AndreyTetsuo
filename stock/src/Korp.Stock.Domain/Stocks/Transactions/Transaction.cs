@@ -11,6 +11,12 @@ public class Transaction
     public Guid? ReferenceId { get; set; }
     public DateTime CreatedAt { get; set; }
 
+    public int SignedQuantity => TransactionType switch
+    {
+        TransactionType.InvoiceOutput => -Quantity,
+        _ => Quantity
+    };
+
     internal static Transaction RecordMovement(
         Guid stockId,
         int quantity,

@@ -11,18 +11,14 @@ public class EntityReference
 
     public static Result<EntityReference> BindReference(EntityType entityType, Guid referenceId)
     {
-        var errors = new List<ValidationError>();
+        var errors = new ValidationErrors()
+            .Require(entityType != EntityType.None, nameof(entityType),
+                "A reference must name the kind of entity it points at.")
+            .Require(referenceId != Guid.Empty, nameof(referenceId),
+                "A reference must point at an external entity.");
 
-        if (entityType == EntityType.None)
-            errors.Add(new ValidationError(nameof(entityType),
-                "A reference must name the kind of entity it points at."));
-
-        if (referenceId == Guid.Empty)
-            errors.Add(new ValidationError(nameof(referenceId),
-                "A reference must point at an external entity."));
-
-        if (errors.Count > 0)
-            return Result<EntityReference>.Invalid([.. errors]);
+        if (errors.Any)
+            return Result<EntityReference>.Invalid(errors.ToArray());
 
         return new EntityReference
         {

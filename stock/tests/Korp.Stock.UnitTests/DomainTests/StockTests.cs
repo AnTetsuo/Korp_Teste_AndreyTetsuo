@@ -9,6 +9,7 @@ namespace UnitTests.DomainTests;
 public class StockTests
 {
     private static readonly Guid ProductId = Guid.CreateVersion7();
+    private static readonly Guid ReferenceId = Guid.CreateVersion7();
 
     [Fact]
     public void Init_WithPositiveQuantity_Succeeds()
@@ -40,7 +41,7 @@ public class StockTests
     {
         var stock = Stock.Init(ProductId, 42).Value;
 
-        stock.Transactions.Sum(t => t.Quantity).ShouldBe(stock.Quantity);
+        stock.Transactions.Sum(t => t.SignedQuantity).ShouldBe(stock.Quantity);
     }
 
     [Fact]
@@ -111,5 +112,142 @@ public class StockTests
         var stock = Stock.Init(ProductId, 5).Value;
 
         stock.Transactions.ShouldNotBeOfType<List<Transaction>>();
+    }
+
+    [Fact]
+    public void Operate_WithinBalance_DecrementsAndRecordsOutput()
+    {
+        var stock = Stock.Init(ProductId, 10).Value;
+
+        var result = stock.Operate(4, ReferenceId);
+
+        var movement = stock.Transactions.Last();
+
+        result.ShouldSatisfyAllConditions(
+            () => result.IsSuccess.ShouldBeTrue(),
+            () => stock.Quantity.ShouldBe(6),
+            () => stock.Transactions.Count.ShouldBe(2),
+            () => movement.TransactionType.ShouldBe(TransactionType.InvoiceOutput),
+            () => movement.Quantity.ShouldBe(4),
+            () => movement.ReferenceId.ShouldBe(ReferenceId),
+            () => movement.CreatedAt.Kind.ShouldBe(DateTimeKind.Utc));
+    }
+
+    [Fact]
+    public void Operate_ReturnsTheMovementItRecorded()
+    {
+        var stock = Stock.Init(ProductId, 10).Value;
+
+        var result = stock.Operate(4, ReferenceId);
+
+        result.Value.ShouldBeSameAs(stock.Transactions.Last());
+    }
+
+    [Fact]
+    public void Operate_BalanceEqualsSignedLedgerSum()
+    {
+        var stock = Stock.Init(ProductId, 42).Value;
+
+        stock.Operate(5, ReferenceId);
+        stock.Operate(7, Guid.CreateVersion7());
+
+        stock.ShouldSatisfyAllConditions(
+            () => stock.Quantity.ShouldBe(30),
+            () => stock.Transactions.Sum(t => t.SignedQuantity).ShouldBe(stock.Quantity),
+            () => stock.Transactions.ShouldAllBe(t => t.Quantity > 0));
+    }
+
+    [Fact]
+    public void Operate_EntireBalance_LeavesZero()
+    {
+        var stock = Stock.Init(ProductId, 3).Value;
+
+        var result = stock.Operate(3, ReferenceId);
+
+        result.ShouldSatisfyAllConditions(
+            () => result.IsSuccess.ShouldBeTrue(),
+            () => stock.Quantity.ShouldBe(0),
+            () => stock.Transactions.Sum(t => t.SignedQuantity).ShouldBe(0));
+    }
+
+    [Fact]
+    public void Operate_RestampsUpdatedAt()
+    {
+        var stock = Stock.Init(ProductId, 10).Value;
+        stock.UpdatedAt = DateTime.UtcNow.AddDays(-1);
+
+        stock.Operate(1, ReferenceId);
+
+        stock.ShouldSatisfyAllConditions(
+            () => stock.UpdatedAt.ShouldBeGreaterThan(DateTime.UtcNow.AddMinutes(-1)),
+            () => stock.UpdatedAt.Kind.ShouldBe(DateTimeKind.Utc));
+    }
+
+    [Fact]
+    public void Operate_MoreThanBalance_IsConflict()
+    {
+        var stock = Stock.Init(ProductId, 2).Value;
+
+        var result = stock.Operate(3, ReferenceId);
+
+        result.ShouldSatisfyAllConditions(
+            () => result.IsSuccess.ShouldBeFalse(),
+            () => result.Status.ShouldBe(ResultStatus.Conflict),
+            () => result.ErrorMessage.ShouldNotBeNull().ShouldContain("2 available"),
+            () => result.ErrorMessage.ShouldNotBeNull().ShouldContain("3 requested"));
+    }
+
+    [Fact]
+    public void Operate_MoreThanBalance_LeavesStockUntouched()
+    {
+        var stock = Stock.Init(ProductId, 2).Value;
+
+        stock.Operate(3, ReferenceId);
+
+        stock.ShouldSatisfyAllConditions(
+            () => stock.Quantity.ShouldBe(2),
+            () => stock.Transactions.ShouldHaveSingleItem());
+    }
+
+    [Theory]
+    [InlineData(0)]
+    [InlineData(-1)]
+    [InlineData(int.MinValue)]
+    public void Operate_WithNonPositiveQuantity_IsInvalid(int quantity)
+    {
+        var stock = Stock.Init(ProductId, 10).Value;
+
+        var result = stock.Operate(quantity, ReferenceId);
+
+        result.ShouldSatisfyAllConditions(
+            () => result.Status.ShouldBe(ResultStatus.Invalid),
+            () => result.ValidationErrors.ShouldContain(e => e.Field == "quantity"),
+            () => stock.Quantity.ShouldBe(10),
+            () => stock.Transactions.ShouldHaveSingleItem());
+    }
+
+    [Fact]
+    public void Operate_WithoutReference_IsInvalid()
+    {
+        var stock = Stock.Init(ProductId, 10).Value;
+
+        var result = stock.Operate(1, Guid.Empty);
+
+        result.ShouldSatisfyAllConditions(
+            () => result.Status.ShouldBe(ResultStatus.Invalid),
+            () => result.ValidationErrors.ShouldContain(e => e.Field == "entityReferenceId"),
+            () => stock.Quantity.ShouldBe(10));
+    }
+
+    [Fact]
+    public void Operate_FromZeroOpeningBalance_IsConflict()
+    {
+        var stock = Stock.Init(ProductId, 0).Value;
+
+        var result = stock.Operate(1, ReferenceId);
+
+        result.ShouldSatisfyAllConditions(
+            () => result.Status.ShouldBe(ResultStatus.Conflict),
+            () => stock.Transactions.ShouldBeEmpty());
     }
 }

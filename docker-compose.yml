@@ -48,10 +48,16 @@ services:
     depends_on:
       korp-db:
         condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
     environment:
       ASPNETCORE_ENVIRONMENT: ${ASPNETCORE_ENVIRONMENT:-Production}
       ApiDocs__Enabled: ${API_DOCS_ENABLED:-false}
       ConnectionStrings__Stock: Host=korp-db;Port=5432;Database=${STOCK_POSTGRES_DB};Username=${POSTGRES_USER};Password=${POSTGRES_PASSWORD};Search Path=stock
+      RabbitMq__Host: rabbitmq
+      RabbitMq__Port: 5672
+      RabbitMq__User: ${RABBITMQ_USER}
+      RabbitMq__Password: ${RABBITMQ_PASSWORD}
     ports:
       - "${STOCK_API_PORT:-3000}:8080"
 

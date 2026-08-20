@@ -15,6 +15,8 @@ internal sealed class StockConfiguration : IEntityTypeConfiguration<Stock>
 
         builder.HasKey(s => s.Id);
 
+        builder.Property(s => s.Id).ValueGeneratedNever();
+
         builder.Property(s => s.Quantity).IsRequired();
         builder.Property(s => s.CreatedAt).IsRequired();
         builder.Property(s => s.UpdatedAt).IsRequired();

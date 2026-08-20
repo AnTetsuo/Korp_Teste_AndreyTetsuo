@@ -36,6 +36,9 @@ public class Result
     public static Result Conflict(string? message = null) =>
         new(ResultStatus.Conflict, message);
 
+    public static Result Conflict(string message, params ValidationError[] errors) =>
+        new(ResultStatus.Conflict, message, errors);
+
     public static Result Unauthorized(string? message = null) =>
         new(ResultStatus.Unauthorized, message);
 
@@ -78,6 +81,9 @@ public sealed class Result<T> : Result
 
     public new static Result<T> Conflict(string? message = null) =>
         new(ResultStatus.Conflict, message);
+
+    public new static Result<T> Conflict(string message, params ValidationError[] errors) =>
+        new(ResultStatus.Conflict, message, errors);
 
     public new static Result<T> Unauthorized(string? message = null) =>
         new(ResultStatus.Unauthorized, message);

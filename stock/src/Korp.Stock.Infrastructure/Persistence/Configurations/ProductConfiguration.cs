@@ -12,6 +12,8 @@ internal sealed class ProductConfiguration : IEntityTypeConfiguration<Product>
 
         builder.HasKey(p => p.Id);
 
+        builder.Property(p => p.Id).ValueGeneratedNever();
+
         builder.Property(p => p.ProductCode)
             .IsRequired()
             .HasMaxLength(Product.ProductCodeMaxLength);

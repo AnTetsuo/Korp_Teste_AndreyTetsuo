@@ -12,7 +12,7 @@ internal sealed class RabbitMqOptions
 
 internal static class MessagingConstants
 {
-    public const string MessageStoreSchema = "invoicing_messaging";
+    public const string MessageStoreSchema = "stock_messaging";
 
-    public const string StockOperationQueue = "stock-operation";
+    public const string OperationQueue = "stock-operation";
 }

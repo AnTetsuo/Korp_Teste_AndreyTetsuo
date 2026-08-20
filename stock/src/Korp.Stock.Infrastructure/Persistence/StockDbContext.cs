@@ -4,6 +4,7 @@ using Domain.Product;
 using Domain.Stocks;
 using Domain.Stocks.Transactions;
 using Microsoft.EntityFrameworkCore;
+using Npgsql;
 
 namespace Infrastructure.Persistence;
 
@@ -16,6 +17,26 @@ public sealed class StockDbContext(DbContextOptions<StockDbContext> options)
     public DbSet<EntityReference> EntityReferences => Set<EntityReference>();
 
     public const string Schema = "stock";
+
+    public void DiscardChanges() => ChangeTracker.Clear();
+
+    public override async Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            return await base.SaveChangesAsync(cancellationToken);
+        }
+        catch (DbUpdateConcurrencyException exception)
+        {
+            throw new ConcurrencyConflictException(exception);
+        }
+        catch (DbUpdateException exception)
+            when (exception.InnerException is PostgresException
+                  { SqlState: PostgresErrorCodes.UniqueViolation } violation)
+        {
+            throw new UniqueConstraintViolationException(violation.ConstraintName, exception);
+        }
+    }
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {

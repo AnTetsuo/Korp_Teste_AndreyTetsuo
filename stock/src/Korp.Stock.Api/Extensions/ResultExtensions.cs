@@ -9,10 +9,7 @@ public static class ResultExtensions
 
     public static IResult ToProblem(this Result result) => result.Status switch
     {
-        ResultStatus.Invalid => Results.ValidationProblem(
-            result.ValidationErrors
-                .GroupBy(e => e.Field)
-                .ToDictionary(g => g.Key, g => g.Select(e => e.Message).ToArray())),
+        ResultStatus.Invalid => Results.ValidationProblem(FieldKeyedErrors(result)),
 
         ResultStatus.NotFound => Results.Problem(
             detail: result.ErrorMessage ?? "Resource not found.",
@@ -20,7 +17,11 @@ public static class ResultExtensions
 
         ResultStatus.Conflict => Results.Problem(
             detail: result.ErrorMessage ?? "The request conflicts with the current state.",
-            statusCode: StatusCodes.Status409Conflict),
+            statusCode: StatusCodes.Status409Conflict,
+            extensions: result.ValidationErrors.Count == 0 ? null : new Dictionary<string, object?>
+            {
+                ["errors"] = FieldKeyedErrors(result)
+            }),
 
         ResultStatus.Unauthorized => Results.Problem(statusCode: StatusCodes.Status401Unauthorized),
 
@@ -30,4 +31,9 @@ public static class ResultExtensions
             detail: result.ErrorMessage ?? "An unexpected error occurred.",
             statusCode: StatusCodes.Status500InternalServerError)
     };
+
+    private static Dictionary<string, string[]> FieldKeyedErrors(Result result) =>
+        result.ValidationErrors
+            .GroupBy(e => e.Field)
+            .ToDictionary(g => g.Key, g => g.Select(e => e.Message).ToArray());
 }
