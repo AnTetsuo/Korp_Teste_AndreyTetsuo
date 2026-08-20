@@ -21,6 +21,9 @@ internal sealed class InvoiceConfiguration : IEntityTypeConfiguration<Invoice>
         builder.Property(i => i.CreatedAt).IsRequired();
         builder.Property(i => i.UpdatedAt).IsRequired();
 
+        builder.Property(i => i.FailureReason)
+            .HasMaxLength(Invoice.FailureReasonMaxLength);
+
         builder.HasIndex(i => i.Number).IsUnique();
         builder.HasIndex(i => i.Status);
 

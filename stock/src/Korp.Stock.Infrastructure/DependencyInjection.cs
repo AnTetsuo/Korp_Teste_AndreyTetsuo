@@ -88,6 +88,12 @@ public static class DependencyInjection
             options.ListenToRabbitQueue(MessagingConstants.OperationQueue)
                 .UseDurableInbox();
 
+            options.PublishMessage<StockOperationApplied>()
+                .ToRabbitQueue(MessagingConstants.RepliesQueue);
+
+            options.PublishMessage<StockOperationRejected>()
+                .ToRabbitQueue(MessagingConstants.RepliesQueue);
+
             options.Policies.UseDurableOutboxOnAllSendingEndpoints();
         });
 

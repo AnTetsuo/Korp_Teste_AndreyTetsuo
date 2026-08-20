@@ -16,17 +16,14 @@ public sealed class InvoicePrintRequestedHandler(
 {
     internal const int MaxAttempts = 3;
 
-    public async Task HandleAsync(
+    public async Task<object> HandleAsync(
         InvoicePrintRequested message,
         CancellationToken cancellationToken)
     {
         var shape = ValidateShape(message);
 
         if (!shape.IsSuccess)
-        {
-            Reject(message.InvoiceId, shape);
-            return;
-        }
+            return Reject(message.InvoiceId, shape);
 
         for (var attempt = 1; ; attempt++)
         {
@@ -34,15 +31,15 @@ public sealed class InvoicePrintRequestedHandler(
             {
                 var result = await AttemptAsync(message, cancellationToken);
 
-                if (result.IsSuccess)
-                    logger.LogInformation(
-                        "Applied the stock operation for invoice {InvoiceId} across {LineCount} lines.",
-                        message.InvoiceId,
-                        result.Value.Lines.Count);
-                else
-                    Reject(message.InvoiceId, result);
+                if (!result.IsSuccess)
+                    return Reject(message.InvoiceId, result);
 
-                return;
+                logger.LogInformation(
+                    "Applied the stock operation for invoice {InvoiceId} across {LineCount} lines.",
+                    message.InvoiceId,
+                    result.Value.Lines.Count);
+
+                return new StockOperationApplied(message.InvoiceId);
             }
             catch (ConcurrencyConflictException) when (attempt < MaxAttempts)
             {
@@ -56,7 +53,7 @@ public sealed class InvoicePrintRequestedHandler(
                     "Invoice {InvoiceId} was already applied by a concurrent handler.",
                     message.InvoiceId);
 
-                return;
+                return new StockOperationApplied(message.InvoiceId);
             }
         }
     }
@@ -137,17 +134,33 @@ public sealed class InvoicePrintRequestedHandler(
         return new OperationResponse(message.InvoiceId, lines);
     }
 
-    private void Reject(Guid invoiceId, Result result)
+    private StockOperationRejected Reject(Guid invoiceId, Result result)
     {
         if (result.Status is not (ResultStatus.Conflict or ResultStatus.Invalid))
             throw new InvalidOperationException(
                 $"The stock operation for invoice '{invoiceId}' failed: {result.ErrorMessage}");
 
+        var reason = Describe(result);
+
         logger.LogWarning(
-            "Rejected the stock operation for invoice {InvoiceId}: {Reason} {Details}",
+            "Rejected the stock operation for invoice {InvoiceId}: {Reason}",
             invoiceId,
-            result.ErrorMessage,
-            string.Join("; ", result.ValidationErrors.Select(e => $"{e.Field}: {e.Message}")));
+            reason);
+
+        return new StockOperationRejected(invoiceId, reason);
+    }
+
+    private static string Describe(Result result)
+    {
+        var headline = result.ErrorMessage ?? "The stock operation was rejected.";
+
+        if (result.ValidationErrors.Count == 0)
+            return headline;
+
+        var details = string.Join(
+            " ", result.ValidationErrors.Select(e => $"{e.Field}: {e.Message}"));
+
+        return $"{headline} {details}";
     }
 
     private static Result ValidateShape(InvoicePrintRequested message)

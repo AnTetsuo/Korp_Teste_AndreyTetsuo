@@ -15,4 +15,6 @@ internal static class MessagingConstants
     public const string MessageStoreSchema = "invoicing_messaging";
 
     public const string StockOperationQueue = "stock-operation";
+
+    public const string RepliesQueue = "invoicing-operation-replies";
 }

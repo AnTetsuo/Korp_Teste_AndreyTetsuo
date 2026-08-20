@@ -1,4 +1,5 @@
 using Application.Invoices.ListInvoices;
+using Application.Invoices.PrintOutcome;
 using Application.Messaging;
 using Application.Messaging.Contracts;
 using Domain.Common;
@@ -8,6 +9,7 @@ using Infrastructure.Persistence;
 using Infrastructure.Persistence.Queries;
 using Infrastructure.Persistence.Repositories;
 using JasperFx;
+using JasperFx.CodeGeneration.Model;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -59,6 +61,8 @@ public static class DependencyInjection
         {
             options.UseRuntimeCompilation();
 
+            options.ServiceLocationPolicy = ServiceLocationPolicy.AllowedButWarn;
+
             options.PersistMessagesWithPostgresql(
                 connectionString, MessagingConstants.MessageStoreSchema);
 
@@ -77,6 +81,12 @@ public static class DependencyInjection
 
             options.PublishMessage<InvoicePrintRequested>()
                 .ToRabbitQueue(MessagingConstants.StockOperationQueue);
+
+            options.Discovery.IncludeType<StockOperationAppliedHandler>();
+            options.Discovery.IncludeType<StockOperationRejectedHandler>();
+
+            options.ListenToRabbitQueue(MessagingConstants.RepliesQueue)
+                .UseDurableInbox();
 
             options.Policies.UseDurableOutboxOnAllSendingEndpoints();
         });

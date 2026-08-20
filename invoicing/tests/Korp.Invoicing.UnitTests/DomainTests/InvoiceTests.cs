@@ -238,4 +238,148 @@ public class InvoiceTests
             () => second.Status.ShouldBe(ResultStatus.Conflict),
             () => invoice.Status.ShouldBe(InvoiceStatus.Processing));
     }
+    [Fact]
+    public void Close_FromProcessing_ClosesAndStampsClosedAt()
+    {
+        var invoice = Invoice.Open(1, [Item()]).Value;
+        invoice.BeginPrinting();
+
+        var result = invoice.Close();
+
+        invoice.ShouldSatisfyAllConditions(
+            () => result.IsSuccess.ShouldBeTrue(),
+            () => invoice.Status.ShouldBe(InvoiceStatus.Closed),
+            () => invoice.ClosedAt.ShouldNotBeNull().Kind.ShouldBe(DateTimeKind.Utc),
+            () => invoice.UpdatedAt.ShouldBe(invoice.ClosedAt!.Value));
+    }
+
+    [Fact]
+    public void Close_WhenAlreadyClosed_IsSuccessAndKeepsTheOriginalClosedAt()
+    {
+        var invoice = Invoice.Open(1, [Item()]).Value;
+        invoice.BeginPrinting();
+        invoice.Close();
+        var closedAt = invoice.ClosedAt;
+
+        var second = invoice.Close();
+
+        invoice.ShouldSatisfyAllConditions(
+            () => second.IsSuccess.ShouldBeTrue(),
+            () => invoice.Status.ShouldBe(InvoiceStatus.Closed),
+            () => invoice.ClosedAt.ShouldBe(closedAt));
+    }
+
+    [Fact]
+    public void Close_FromOpen_IsConflict()
+    {
+        var invoice = Invoice.Open(3, [Item()]).Value;
+
+        var result = invoice.Close();
+
+        invoice.ShouldSatisfyAllConditions(
+            () => result.Status.ShouldBe(ResultStatus.Conflict),
+            () => result.ErrorMessage.ShouldNotBeNull().ShouldContain("Open"),
+            () => invoice.Status.ShouldBe(InvoiceStatus.Open),
+            () => invoice.ClosedAt.ShouldBeNull());
+    }
+
+    [Fact]
+    public void Close_ClearsAFailureReasonFromAnEarlierAttempt()
+    {
+        var invoice = Invoice.Open(1, [Item()]).Value;
+        invoice.BeginPrinting();
+        invoice.FailPrinting("Insufficient balance.");
+        invoice.BeginPrinting();
+
+        invoice.Close();
+
+        invoice.FailureReason.ShouldBeNull();
+    }
+
+    [Fact]
+    public void FailPrinting_FromProcessing_ReopensAndRecordsTheReason()
+    {
+        var invoice = Invoice.Open(1, [Item()]).Value;
+        invoice.BeginPrinting();
+
+        var result = invoice.FailPrinting("  Insufficient balance for SKU-1.  ");
+
+        invoice.ShouldSatisfyAllConditions(
+            () => result.IsSuccess.ShouldBeTrue(),
+            () => invoice.Status.ShouldBe(InvoiceStatus.Open),
+            () => invoice.FailureReason.ShouldBe("Insufficient balance for SKU-1."),
+            () => invoice.ClosedAt.ShouldBeNull());
+    }
+
+    [Fact]
+    public void FailPrinting_WhenAlreadyReopened_IsSuccessAndKeepsTheFirstReason()
+    {
+        var invoice = Invoice.Open(1, [Item()]).Value;
+        invoice.BeginPrinting();
+        invoice.FailPrinting("Insufficient balance.");
+
+        var second = invoice.FailPrinting("Something else entirely.");
+
+        invoice.ShouldSatisfyAllConditions(
+            () => second.IsSuccess.ShouldBeTrue(),
+            () => invoice.Status.ShouldBe(InvoiceStatus.Open),
+            () => invoice.FailureReason.ShouldBe("Insufficient balance."));
+    }
+
+    [Fact]
+    public void FailPrinting_WhenClosed_IsConflictAndLeavesItClosed()
+    {
+        var invoice = Invoice.Open(1, [Item()]).Value;
+        invoice.BeginPrinting();
+        invoice.Close();
+
+        var result = invoice.FailPrinting("A late rejection.");
+
+        invoice.ShouldSatisfyAllConditions(
+            () => result.Status.ShouldBe(ResultStatus.Conflict),
+            () => invoice.Status.ShouldBe(InvoiceStatus.Closed),
+            () => invoice.FailureReason.ShouldBeNull());
+    }
+
+    [Theory]
+    [InlineData("")]
+    [InlineData("   ")]
+    public void FailPrinting_WithoutAReason_IsInvalid(string reason)
+    {
+        var invoice = Invoice.Open(1, [Item()]).Value;
+        invoice.BeginPrinting();
+
+        var result = invoice.FailPrinting(reason);
+
+        invoice.ShouldSatisfyAllConditions(
+            () => result.Status.ShouldBe(ResultStatus.Invalid),
+            () => invoice.Status.ShouldBe(InvoiceStatus.Processing));
+    }
+
+    [Fact]
+    public void FailPrinting_WithAnOverlongReason_IsInvalid()
+    {
+        var invoice = Invoice.Open(1, [Item()]).Value;
+        invoice.BeginPrinting();
+
+        var result = invoice.FailPrinting(new string('x', Invoice.FailureReasonMaxLength + 1));
+
+        invoice.ShouldSatisfyAllConditions(
+            () => result.Status.ShouldBe(ResultStatus.Invalid),
+            () => invoice.Status.ShouldBe(InvoiceStatus.Processing));
+    }
+
+    [Fact]
+    public void BeginPrinting_ClearsTheFailureReasonFromTheLastAttempt()
+    {
+        var invoice = Invoice.Open(1, [Item()]).Value;
+        invoice.BeginPrinting();
+        invoice.FailPrinting("Insufficient balance.");
+
+        invoice.BeginPrinting();
+
+        invoice.ShouldSatisfyAllConditions(
+            () => invoice.Status.ShouldBe(InvoiceStatus.Processing),
+            () => invoice.FailureReason.ShouldBeNull());
+    }
 }

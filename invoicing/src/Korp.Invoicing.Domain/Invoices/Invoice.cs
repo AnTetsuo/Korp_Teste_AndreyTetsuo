@@ -6,6 +6,8 @@ namespace Domain.Invoices;
 
 public class Invoice
 {
+    public const int FailureReasonMaxLength = 1000;
+
     private readonly List<InvoiceItem> _items = [];
 
     public Guid Id { get; set; }
@@ -13,6 +15,8 @@ public class Invoice
     public InvoiceStatus Status { get; set; }
     public DateTime CreatedAt { get; set; }
     public DateTime UpdatedAt { get; set; }
+    public DateTime? ClosedAt { get; set; }
+    public string? FailureReason { get; set; }
 
     public IReadOnlyCollection<InvoiceItem> Items => _items.AsReadOnly();
 
@@ -61,6 +65,54 @@ public class Invoice
                 $"Only an open invoice can be printed; invoice {Number} is {Status}.");
 
         Status = InvoiceStatus.Processing;
+        FailureReason = null;
+        UpdatedAt = DateTime.UtcNow;
+
+        return Result.Success();
+    }
+
+    /// <summary>
+    /// Closes a printing invoice. Idempotent on purpose: stock replies at least once, so a
+    /// redelivered confirmation must be a no-op rather than a conflict.
+    /// </summary>
+    public Result Close()
+    {
+        if (Status == InvoiceStatus.Closed)
+            return Result.Success();
+
+        if (Status != InvoiceStatus.Processing)
+            return Result.Conflict(
+                $"Only a printing invoice can be closed; invoice {Number} is {Status}.");
+
+        Status = InvoiceStatus.Closed;
+        FailureReason = null;
+        ClosedAt = DateTime.UtcNow;
+        UpdatedAt = ClosedAt.Value;
+
+        return Result.Success();
+    }
+
+    /// <summary>
+    /// Returns a printing invoice to open, recording why, so the user can print it again.
+    /// Closed is terminal — a confirmation already won, whatever the arrival order.
+    /// </summary>
+    public Result FailPrinting(string reason)
+    {
+        var errors = new ValidationErrors()
+            .RequireText(reason, nameof(reason), "Failure reason", FailureReasonMaxLength);
+
+        if (errors.Any)
+            return Result.Invalid(errors.ToArray());
+
+        if (Status == InvoiceStatus.Closed)
+            return Result.Conflict(
+                $"Invoice {Number} is already closed and cannot be reopened.");
+
+        if (Status != InvoiceStatus.Processing)
+            return Result.Success();
+
+        Status = InvoiceStatus.Open;
+        FailureReason = reason.Trim();
         UpdatedAt = DateTime.UtcNow;
 
         return Result.Success();
