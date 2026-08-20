@@ -16,22 +16,12 @@ public class Product
 
     public static Result<Product> Create(string description, string productCode)
     {
-        var errors = new List<ValidationError>();
+        var errors = new ValidationErrors()
+            .RequireText(description, nameof(description), "Description", DescriptionMaxLength)
+            .RequireText(productCode, nameof(productCode), "Product code", ProductCodeMaxLength);
 
-        if (string.IsNullOrWhiteSpace(description))
-            errors.Add(new ValidationError(nameof(description), "Description is required."));
-        else if (description.Trim().Length > DescriptionMaxLength)
-            errors.Add(new ValidationError(nameof(description),
-                $"Description must be at most {DescriptionMaxLength} characters."));
-
-        if (string.IsNullOrWhiteSpace(productCode))
-            errors.Add(new ValidationError(nameof(productCode), "Product code is required."));
-        else if (productCode.Trim().Length > ProductCodeMaxLength)
-            errors.Add(new ValidationError(nameof(productCode),
-                $"Product code must be at most {ProductCodeMaxLength} characters."));
-
-        if (errors.Count > 0)
-            return Result<Product>.Invalid([.. errors]);
+        if (errors.Any)
+            return Result<Product>.Invalid(errors.ToArray());
 
         var now = DateTime.UtcNow;
 

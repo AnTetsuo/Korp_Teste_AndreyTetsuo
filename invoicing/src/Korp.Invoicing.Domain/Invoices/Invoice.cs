@@ -18,33 +18,24 @@ public class Invoice
 
     public static Result<Invoice> Open(long number, IReadOnlyList<InvoiceItemDto> items)
     {
-        var errors = new List<ValidationError>();
-
-        if (number <= 0)
-            errors.Add(new ValidationError(nameof(number), "Invoice number must be positive."));
+        var errors = new ValidationErrors()
+            .Require(number > 0, nameof(number), "Invoice number must be positive.");
 
         if (items.Count == 0)
-        {
-            errors.Add(new ValidationError(
-                nameof(items), "An invoice must have at least one item."));
-
-            return Result<Invoice>.Invalid([.. errors]);
-        }
+            return Result<Invoice>.Invalid(
+                errors.Add(nameof(items), "An invoice must have at least one item.").ToArray());
 
         for (var index = 0; index < items.Count; index++)
-            ValidateItem(items[index], index, errors);
+            Validate(items[index], index, errors);
 
-        var duplicates = items
-            .Where(item => item.ProductId != Guid.Empty)
-            .GroupBy(item => item.ProductId)
-            .Where(group => group.Count() > 1);
+        foreach (var duplicate in items
+                     .Where(item => item.ProductId != Guid.Empty)
+                     .GroupBy(item => item.ProductId)
+                     .Where(group => group.Count() > 1))
+            errors.Add(nameof(items), $"Product '{duplicate.Key}' appears more than once.");
 
-        foreach (var duplicate in duplicates)
-            errors.Add(new ValidationError(
-                nameof(items), $"Product '{duplicate.Key}' appears more than once."));
-
-        if (errors.Count > 0)
-            return Result<Invoice>.Invalid([.. errors]);
+        if (errors.Any)
+            return Result<Invoice>.Invalid(errors.ToArray());
 
         var now = DateTime.UtcNow;
 
@@ -75,33 +66,12 @@ public class Invoice
         return Result.Success();
     }
 
-    private static void ValidateItem(
-        InvoiceItemDto item,
-        int index,
-        List<ValidationError> errors)
-    {
-        if (item.ProductId == Guid.Empty)
-            errors.Add(new ValidationError(
-                $"items[{index}].productId", "Product id is required."));
-
-        if (string.IsNullOrWhiteSpace(item.ProductCode))
-            errors.Add(new ValidationError(
-                $"items[{index}].productCode", "Product code is required."));
-        else if (item.ProductCode.Trim().Length > InvoiceItem.ProductCodeMaxLength)
-            errors.Add(new ValidationError(
-                $"items[{index}].productCode",
-                $"Product code must be at most {InvoiceItem.ProductCodeMaxLength} characters."));
-
-        if (string.IsNullOrWhiteSpace(item.Description))
-            errors.Add(new ValidationError(
-                $"items[{index}].description", "Description is required."));
-        else if (item.Description.Trim().Length > InvoiceItem.DescriptionMaxLength)
-            errors.Add(new ValidationError(
-                $"items[{index}].description",
-                $"Description must be at most {InvoiceItem.DescriptionMaxLength} characters."));
-
-        if (item.Quantity <= 0)
-            errors.Add(new ValidationError(
-                $"items[{index}].quantity", "Quantity must be greater than zero."));
-    }
+    private static void Validate(InvoiceItemDto item, int index, ValidationErrors errors) =>
+        errors
+            .RequireId(item.ProductId, $"items[{index}].productId", "Product id")
+            .RequireText(item.ProductCode, $"items[{index}].productCode",
+                "Product code", InvoiceItem.ProductCodeMaxLength)
+            .RequireText(item.Description, $"items[{index}].description",
+                "Description", InvoiceItem.DescriptionMaxLength)
+            .RequirePositive(item.Quantity, $"items[{index}].quantity", "Quantity");
 }
