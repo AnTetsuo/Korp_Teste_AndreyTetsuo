@@ -6,13 +6,14 @@ namespace Api.Endpoints.Invoices.List;
 
 public sealed class ListInvoicesRequestValidator : AbstractValidator<ListInvoicesRequest>
 {
+    public const int MinRows = 5;
     public const int MaxRows = 100;
 
     public ListInvoicesRequestValidator()
     {
         RuleFor(x => x.Rows)
-            .InclusiveBetween(1, MaxRows)
-            .WithMessage($"Rows must be between 1 and {MaxRows}.");
+            .InclusiveBetween(MinRows, MaxRows)
+            .WithMessage($"Rows must be between {MinRows} and {MaxRows}.");
 
         When(x => x.Number is not null, () =>
         {

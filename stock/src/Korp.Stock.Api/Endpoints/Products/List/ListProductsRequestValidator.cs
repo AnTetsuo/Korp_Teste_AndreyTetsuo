@@ -6,6 +6,7 @@ namespace Api.Endpoints.Products.List;
 public sealed class ListProductsRequestValidator : AbstractValidator<ListProductsRequest>
 {
     public const int MaxRows = 100;
+    public const int MinRows = 5;
 
     public ListProductsRequestValidator()
     {
@@ -16,8 +17,8 @@ public sealed class ListProductsRequestValidator : AbstractValidator<ListProduct
         });
 
         RuleFor(x => x.Rows)
-            .InclusiveBetween(5, MaxRows)
-            .WithMessage($"Rows must be between 1 and {MaxRows}.");
+            .InclusiveBetween(MinRows, MaxRows)
+            .WithMessage($"Rows must be between {MinRows} and {MaxRows}.");
 
         When(x => x.OrderBy is not null, () =>
         {
