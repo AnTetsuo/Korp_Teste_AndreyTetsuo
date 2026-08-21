@@ -9,6 +9,7 @@ import {
   InvoiceDetail,
   ListInvoicesQuery,
   ListInvoicesResponse,
+  PrintInvoiceResponse,
 } from './models';
 
 @Injectable({ providedIn: 'root' })
@@ -48,5 +49,9 @@ export class InvoicesApi {
 
   create(request: CreateInvoiceRequest): Observable<CreateInvoiceResponse> {
     return this.http.post<CreateInvoiceResponse>(`${this.baseUrl}/invoices`, request);
+  }
+
+  print(id: string): Observable<PrintInvoiceResponse> {
+    return this.http.post<PrintInvoiceResponse>(`${this.baseUrl}/invoices/${id}/print`, {});
   }
 }

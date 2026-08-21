@@ -89,3 +89,11 @@ table {
   font-size: 0.75rem;
   opacity: 0.7;
 }
+
+.hint.checking {
+  color: var(--mat-sys-on-surface-variant);
+}
+
+.panel mat-progress-bar {
+  margin-top: 1.5rem;
+}

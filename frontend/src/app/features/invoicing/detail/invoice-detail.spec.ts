@@ -1,14 +1,17 @@
 import { provideHttpClient, withInterceptors } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
+import { MatSnackBar } from '@angular/material/snack-bar';
 import { provideRouter } from '@angular/router';
 
 import { API_BASE_URLS } from '../../../core/config/api-base-urls';
 import { InvoiceDetail as Invoice, InvoiceStatus } from '../../../core/api/invoicing/models';
 import { problemDetailsInterceptor } from '../../../core/http/problem-details.interceptor';
-import { InvoiceDetail } from './invoice-detail';
+import { GRACE_TICKS, POLL_INTERVAL_MS, InvoiceDetail } from './invoice-detail';
 
 const ID = '01a0263a-4083-7839-800b-26e01bd0c7b0';
+const URL = `http://localhost:3001/invoices/${ID}`;
+const REASON = 'Insufficient balance: 2 available, 999 requested.';
 
 function invoice(overrides: Partial<Invoice> = {}): Invoice {
   return {
@@ -29,8 +32,11 @@ function invoice(overrides: Partial<Invoice> = {}): Invoice {
 
 describe('InvoiceDetail', () => {
   let backend: HttpTestingController;
+  let fixture: ComponentFixture<InvoiceDetail> | null = null;
 
   beforeEach(async () => {
+    vi.useFakeTimers();
+
     await TestBed.configureTestingModule({
       imports: [InvoiceDetail],
       providers: [
@@ -47,90 +53,248 @@ describe('InvoiceDetail', () => {
     backend = TestBed.inject(HttpTestingController);
   });
 
-  afterEach(() => backend.verify());
+  afterEach(() => {
+    fixture?.destroy();
+    fixture = null;
+    backend.verify();
+    vi.useRealTimers();
+  });
 
-  function render(body: Invoice | null, status = 200): ComponentFixture<InvoiceDetail> {
-    const fixture = TestBed.createComponent(InvoiceDetail);
+  async function start(): Promise<ComponentFixture<InvoiceDetail>> {
+    fixture = TestBed.createComponent(InvoiceDetail);
     fixture.componentRef.setInput('id', ID);
     fixture.detectChanges();
-
-    const request = backend.expectOne(`http://localhost:3001/invoices/${ID}`);
-
-    if (body === null) {
-      request.flush(
-        { title: 'Not Found', status, detail: 'Invoice not found.' },
-        { status, statusText: 'Not Found' },
-      );
-    } else {
-      request.flush(body);
-    }
-
-    fixture.detectChanges();
+    await vi.advanceTimersByTimeAsync(0);
 
     return fixture;
   }
 
-  function text(fixture: ComponentFixture<InvoiceDetail>): string {
-    return (fixture.nativeElement as HTMLElement).textContent ?? '';
+  function answer(body: Invoice): void {
+    backend.expectOne(URL).flush(body);
+    fixture?.detectChanges();
   }
 
-  function printButton(fixture: ComponentFixture<InvoiceDetail>): HTMLButtonElement | null {
-    return (fixture.nativeElement as HTMLElement).querySelector('button[mat-flat-button]');
+  async function open(body: Invoice): Promise<ComponentFixture<InvoiceDetail>> {
+    const created = await start();
+    answer(body);
+
+    return created;
   }
 
-  it('requests the invoice named by the route input', () => {
-    render(invoice());
-  });
+  async function tick(): Promise<void> {
+    await vi.advanceTimersByTimeAsync(POLL_INTERVAL_MS);
+  }
 
-  it('renders the number, the items and the totals', () => {
-    const content = text(render(invoice()));
+  function text(): string {
+    return (fixture?.nativeElement as HTMLElement).textContent ?? '';
+  }
 
-    expect(content).toContain('Nota fiscal 42');
-    expect(content).toContain('BHS112613-3');
-    expect(content).toContain('ATL0138');
-    expect(content).toContain('2 item(ns)');
-    expect(content).toContain('5 unidade(s)');
+  function printButton(): HTMLButtonElement | null {
+    return (fixture?.nativeElement as HTMLElement).querySelector('button[mat-flat-button]');
+  }
+
+  it('renders the number, the items and the totals', async () => {
+    await open(invoice());
+
+    expect(text()).toContain('Nota fiscal 42');
+    expect(text()).toContain('BHS112613-3');
+    expect(text()).toContain('5 unidade(s)');
   });
 
   it.each<[InvoiceStatus, string]>([
     ['Open', 'Aberta'],
-    ['Processing', 'Processando'],
     ['Closed', 'Fechada'],
-  ])('renders %s as %s', (status, label) => {
-    expect(text(render(invoice({ status })))).toContain(label);
+  ])('renders %s as %s and stops after one request', async (status, label) => {
+    await open(invoice({ status }));
+
+    expect(text()).toContain(label);
+
+    await tick();
+    backend.verify();
   });
 
-  it('enables Imprimir only while the invoice is open', () => {
-    expect(printButton(render(invoice({ status: 'Open' })))?.disabled).toBe(false);
+  it('enables Imprimir only while the invoice is open', async () => {
+    await open(invoice({ status: 'Open' }));
+
+    expect(printButton()?.disabled).toBe(false);
   });
 
-  it.each<InvoiceStatus>(['Processing', 'Closed'])('disables Imprimir when %s', (status) => {
-    expect(printButton(render(invoice({ status })))?.disabled).toBe(true);
+  it.each<InvoiceStatus>(['Processing', 'Closed'])('disables Imprimir when %s', async (status) => {
+    await open(invoice({ status }));
+
+    expect(printButton()?.disabled).toBe(true);
   });
 
-  it('explains that Processing resolves without the user acting', () => {
-    expect(text(render(invoice({ status: 'Processing' })))).toContain('muda sozinha');
+  it('shows closedAt only once the invoice is closed', async () => {
+    await open(invoice({ status: 'Closed', closedAt: '2026-08-21T22:00:00Z' }));
+
+    expect(text()).toContain('21/08/2026');
   });
 
-  it('shows the reason a failed print left behind', () => {
-    const content = text(
-      render(invoice({ status: 'Open', failureReason: 'Insufficient balance for product X.' })),
-    );
+  it('offers a way back when the invoice does not exist', async () => {
+    await start();
+    backend
+      .expectOne(URL)
+      .flush({ title: 'Not Found', detail: 'Invoice not found.' }, { status: 404, statusText: 'Not Found' });
+    fixture?.detectChanges();
 
-    expect(content).toContain('Insufficient balance for product X.');
+    expect(text()).toContain('Invoice not found.');
+    expect(text()).toContain('Tentar novamente');
   });
 
-  it('shows closedAt only once the invoice is closed', () => {
-    expect(text(render(invoice({ status: 'Open' })))).toContain('—');
-    expect(
-      text(render(invoice({ status: 'Closed', closedAt: '2026-08-21T22:00:00Z' }))),
-    ).toContain('21/08/2026');
+  it('keeps polling while Processing and stops as soon as it closes', async () => {
+    await open(invoice({ status: 'Processing' }));
+
+    expect(text()).toContain('Processando');
+    expect(text()).toContain('muda sozinha');
+
+    await tick();
+    answer(invoice({ status: 'Processing' }));
+
+    expect(text()).toContain('Processando');
+
+    await tick();
+    answer(invoice({ status: 'Closed', closedAt: '2026-08-21T22:00:00Z' }));
+
+    expect(text()).toContain('Fechada');
+
+    await tick();
+    backend.verify();
   });
 
-  it('offers a way back when the invoice does not exist', () => {
-    const content = text(render(null, 404));
+  it('softens the copy during the grace window, then reveals the reason', async () => {
+    await open(invoice({ status: 'Open', failureReason: REASON }));
 
-    expect(content).toContain('Invoice not found.');
-    expect(content).toContain('Tentar novamente');
+    expect(text()).toContain('Ainda confirmando com o estoque');
+    expect(text()).not.toContain(REASON);
+
+    for (let i = 0; i < GRACE_TICKS; i++) {
+      await tick();
+      answer(invoice({ status: 'Open', failureReason: REASON }));
+    }
+
+    expect(text()).toContain(REASON);
+    expect(text()).not.toContain('Ainda confirmando com o estoque');
+
+    await tick();
+    backend.verify();
+  });
+
+  it('ends the grace window early when a late confirmation closes the invoice', async () => {
+    await open(invoice({ status: 'Open', failureReason: REASON }));
+
+    await tick();
+    answer(invoice({ status: 'Closed', closedAt: '2026-08-21T22:00:00Z' }));
+
+    expect(text()).toContain('Fechada');
+    expect(text()).not.toContain(REASON);
+
+    await tick();
+    backend.verify();
+  });
+
+  it('does not wait around for a rejection that carries no reason', async () => {
+    await open(invoice({ status: 'Open', failureReason: null }));
+
+    expect(text()).not.toContain('Ainda confirmando');
+
+    await tick();
+    backend.verify();
+  });
+
+  it('starts watching after a successful print', async () => {
+    await open(invoice({ status: 'Open' }));
+
+    printButton()?.click();
+
+    backend
+      .expectOne({ url: `${URL}/print`, method: 'POST' })
+      .flush({ id: ID, number: 42, status: 'Processing', updatedAt: '2026-08-21T22:00:00Z' }, {
+        status: 202,
+        statusText: 'Accepted',
+      });
+
+    fixture?.detectChanges();
+    await vi.advanceTimersByTimeAsync(0);
+    answer(invoice({ status: 'Processing' }));
+
+    expect(text()).toContain('Processando');
+  });
+
+  it('announces success only once the printed invoice closes', async () => {
+    await open(invoice({ status: 'Open' }));
+    const snackBar = vi.spyOn(TestBed.inject(MatSnackBar), 'open');
+
+    printButton()?.click();
+    backend
+      .expectOne({ url: `${URL}/print`, method: 'POST' })
+      .flush({ id: ID, number: 42, status: 'Processing', updatedAt: '2026-08-21T22:00:00Z' }, {
+        status: 202,
+        statusText: 'Accepted',
+      });
+
+    fixture?.detectChanges();
+    await vi.advanceTimersByTimeAsync(0);
+    answer(invoice({ status: 'Processing' }));
+
+    expect(snackBar).not.toHaveBeenCalled();
+
+    await tick();
+    answer(invoice({ status: 'Closed', closedAt: '2026-08-21T22:00:00Z' }));
+
+    expect(snackBar).toHaveBeenCalledOnce();
+    expect(snackBar.mock.calls[0]?.[0]).toContain('impressa com sucesso');
+  });
+
+  it('stays quiet when an already-closed invoice is merely opened', async () => {
+    const snackBar = vi.spyOn(TestBed.inject(MatSnackBar), 'open');
+
+    await open(invoice({ status: 'Closed', closedAt: '2026-08-21T22:00:00Z' }));
+
+    expect(snackBar).not.toHaveBeenCalled();
+  });
+
+  it('does not claim success when the print was rejected', async () => {
+    await open(invoice({ status: 'Open' }));
+    const snackBar = vi.spyOn(TestBed.inject(MatSnackBar), 'open');
+
+    printButton()?.click();
+    backend
+      .expectOne({ url: `${URL}/print`, method: 'POST' })
+      .flush({ id: ID, number: 42, status: 'Processing', updatedAt: '2026-08-21T22:00:00Z' }, {
+        status: 202,
+        statusText: 'Accepted',
+      });
+
+    fixture?.detectChanges();
+    await vi.advanceTimersByTimeAsync(0);
+    answer(invoice({ status: 'Open', failureReason: REASON }));
+
+    for (let i = 0; i < GRACE_TICKS; i++) {
+      await tick();
+      answer(invoice({ status: 'Open', failureReason: REASON }));
+    }
+
+    expect(snackBar).not.toHaveBeenCalled();
+    expect(text()).toContain(REASON);
+  });
+
+  it('treats a 409 as a normal outcome and watches anyway', async () => {
+    await open(invoice({ status: 'Open' }));
+
+    printButton()?.click();
+
+    backend
+      .expectOne({ url: `${URL}/print`, method: 'POST' })
+      .flush({ title: 'Conflict', detail: 'Invoice is not open.' }, {
+        status: 409,
+        statusText: 'Conflict',
+      });
+
+    fixture?.detectChanges();
+    await vi.advanceTimersByTimeAsync(0);
+    answer(invoice({ status: 'Processing' }));
+
+    expect(text()).toContain('Processando');
   });
 });

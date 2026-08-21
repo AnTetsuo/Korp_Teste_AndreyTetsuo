@@ -24,7 +24,11 @@
         <h1>Nota fiscal {{ current.invoice.number }}</h1>
       </div>
 
-      <button mat-flat-button type="button" [disabled]="!canPrint(current.invoice)">
+      <button
+        mat-flat-button
+        type="button"
+        [disabled]="!canPrint(current.invoice) || printing()"
+        (click)="print(current.invoice)">
         <mat-icon>print</mat-icon>
         Imprimir
       </button>
@@ -62,12 +66,16 @@
         </dl>
 
         @if (current.invoice.status === 'Processing') {
+          <mat-progress-bar mode="indeterminate" />
           <p class="hint processing">
             O estoque está processando esta nota. A situação muda sozinha quando ele responder.
           </p>
-        }
-
-        @if (current.invoice.failureReason) {
+        } @else if (current.watching) {
+          <mat-progress-bar mode="indeterminate" />
+          <p class="hint checking">
+            Ainda confirmando com o estoque.
+          </p>
+        } @else if (current.invoice.failureReason) {
           <p class="hint failure">
             <mat-icon>error_outline</mat-icon>
             {{ current.invoice.failureReason }}

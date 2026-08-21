@@ -60,3 +60,10 @@ export interface InvoiceDetail {
   readonly failureReason: string | null;
   readonly items: readonly InvoiceLine[];
 }
+
+export interface PrintInvoiceResponse {
+  readonly id: string;
+  readonly number: number;
+  readonly status: InvoiceStatus;
+  readonly updatedAt: string;
+}
