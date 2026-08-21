@@ -1,0 +1,4 @@
+{
+  "stock": "http://localhost:3000",
+  "invoicing": "http://localhost:3001"
+}
