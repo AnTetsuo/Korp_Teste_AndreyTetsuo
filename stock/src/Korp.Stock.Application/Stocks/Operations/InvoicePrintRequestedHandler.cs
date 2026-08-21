@@ -1,3 +1,4 @@
+using Application.Messaging;
 using Application.Messaging.Contracts;
 using Domain.Common;
 using Domain.Stocks;
@@ -12,18 +13,23 @@ public sealed class InvoicePrintRequestedHandler(
     IEntityReferenceRepository references,
     IStockOperationReadRepository operations,
     IUnitOfWork unitOfWork,
+    IOutbox outbox,
     ILogger<InvoicePrintRequestedHandler> logger)
 {
     internal const int MaxAttempts = 3;
 
-    public async Task<object> HandleAsync(
+    public async Task HandleAsync(
         InvoicePrintRequested message,
         CancellationToken cancellationToken)
     {
         var shape = ValidateShape(message);
 
         if (!shape.IsSuccess)
-            return Reject(message.InvoiceId, shape);
+        {
+            await ReplyAsync(Reject(message.InvoiceId, shape), cancellationToken);
+
+            return;
+        }
 
         for (var attempt = 1; ; attempt++)
         {
@@ -32,14 +38,18 @@ public sealed class InvoicePrintRequestedHandler(
                 var result = await AttemptAsync(message, cancellationToken);
 
                 if (!result.IsSuccess)
-                    return Reject(message.InvoiceId, result);
+                {
+                    await ReplyAsync(Reject(message.InvoiceId, result), cancellationToken);
+
+                    return;
+                }
 
                 logger.LogInformation(
                     "Applied the stock operation for invoice {InvoiceId} across {LineCount} lines.",
                     message.InvoiceId,
                     result.Value.Lines.Count);
 
-                return new StockOperationApplied(message.InvoiceId);
+                return;
             }
             catch (ConcurrencyConflictException) when (attempt < MaxAttempts)
             {
@@ -47,15 +57,24 @@ public sealed class InvoicePrintRequestedHandler(
             }
             catch (UniqueConstraintViolationException)
             {
-                unitOfWork.DiscardChanges();
-
                 logger.LogInformation(
                     "Invoice {InvoiceId} was already applied by a concurrent handler.",
                     message.InvoiceId);
 
-                return new StockOperationApplied(message.InvoiceId);
+                await ReplyAsync(new StockOperationApplied(message.InvoiceId), cancellationToken);
+
+                return;
             }
         }
+    }
+    
+    private async Task ReplyAsync<TReply>(TReply reply, CancellationToken cancellationToken)
+        where TReply : notnull
+    {
+        unitOfWork.DiscardChanges();
+
+        await outbox.PublishAsync(reply, cancellationToken);
+        await outbox.SaveChangesAndFlushAsync(cancellationToken);
     }
 
     private async Task<Result<OperationResponse>> AttemptAsync(
@@ -69,10 +88,13 @@ public sealed class InvoicePrintRequestedHandler(
         {
             var applied = await operations.GetByInvoiceIdAsync(message.InvoiceId, cancellationToken);
 
-            return applied is not null
-                ? Result<OperationResponse>.Success(applied)
-                : Result<OperationResponse>.Error(
+            if (applied is null)
+                return Result<OperationResponse>.Error(
                     $"Invoice '{message.InvoiceId}' is bound to an operation that recorded no movements.");
+
+            await ReplyAsync(new StockOperationApplied(message.InvoiceId), cancellationToken);
+
+            return Result<OperationResponse>.Success(applied);
         }
 
         var loaded = await stocks.GetByProductIdsAsync(
@@ -129,7 +151,8 @@ public sealed class InvoicePrintRequestedHandler(
             lines.Add(new OperationLine(line.ProductId, line.Quantity, stock.Quantity));
         }
 
-        await unitOfWork.SaveChangesAsync(cancellationToken);
+        await outbox.PublishAsync(new StockOperationApplied(message.InvoiceId), cancellationToken);
+        await outbox.SaveChangesAndFlushAsync(cancellationToken);
 
         return new OperationResponse(message.InvoiceId, lines);
     }

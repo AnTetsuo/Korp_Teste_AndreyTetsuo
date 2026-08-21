@@ -1,4 +1,5 @@
 using Application.Products.ListProducts;
+using Application.Messaging;
 using Application.Messaging.Contracts;
 using Application.Stocks.Operations;
 using Domain.Common;
@@ -96,6 +97,8 @@ public static class DependencyInjection
 
             options.Policies.UseDurableOutboxOnAllSendingEndpoints();
         });
+
+        services.AddScoped<IOutbox, WolverineOutbox>();
 
         return services;
     }

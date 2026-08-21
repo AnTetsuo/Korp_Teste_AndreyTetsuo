@@ -19,12 +19,14 @@ public sealed class StockDbContext(DbContextOptions<StockDbContext> options)
     public const string Schema = "stock";
 
     public void DiscardChanges() => ChangeTracker.Clear();
-
-    public override async Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)
+    
+    public override async Task<int> SaveChangesAsync(
+        bool acceptAllChangesOnSuccess,
+        CancellationToken cancellationToken = default)
     {
         try
         {
-            return await base.SaveChangesAsync(cancellationToken);
+            return await base.SaveChangesAsync(acceptAllChangesOnSuccess, cancellationToken);
         }
         catch (DbUpdateConcurrencyException exception)
         {
