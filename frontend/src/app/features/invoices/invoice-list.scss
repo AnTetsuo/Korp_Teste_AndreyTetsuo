@@ -1,0 +1,53 @@
+.page-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem;
+}
+
+table {
+  width: 100%;
+}
+
+.numeric {
+  text-align: right;
+}
+
+.status {
+  display: inline-block;
+  padding: 0.15rem 0.6rem;
+  border-radius: 1rem;
+  font-size: 0.8125rem;
+  background: var(--mat-sys-surface-container-high);
+}
+
+.status[data-status='Processing'] {
+  background: var(--mat-sys-secondary-container);
+  color: var(--mat-sys-on-secondary-container);
+}
+
+.status[data-status='Closed'] {
+  background: var(--mat-sys-tertiary-container);
+  color: var(--mat-sys-on-tertiary-container);
+}
+
+.feedback {
+  padding: 2rem 1rem;
+  text-align: center;
+}
+
+.feedback.error {
+  color: var(--mat-sys-error);
+}
+
+.trace {
+  font-family: monospace;
+  font-size: 0.75rem;
+  opacity: 0.7;
+}

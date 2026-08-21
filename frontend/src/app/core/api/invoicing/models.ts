@@ -1,0 +1,32 @@
+import { PagedResponse } from '../paging';
+
+export const INVOICE_STATUSES = ['Open', 'Processing', 'Closed'] as const;
+
+export type InvoiceStatus = (typeof INVOICE_STATUSES)[number];
+
+export interface UnitOfInvoice {
+  readonly id: string;
+  readonly number: number;
+  readonly status: InvoiceStatus;
+  readonly createdAt: string;
+  readonly updatedAt: string;
+  readonly itemCount: number;
+  readonly totalQuantity: number;
+}
+
+export interface ListInvoicesResponse extends PagedResponse {
+  readonly invoices: readonly UnitOfInvoice[];
+}
+
+export const INVOICE_ORDER_BY = ['Number', 'CreatedAt', 'UpdatedAt', 'Status'] as const;
+
+export type InvoiceOrderBy = (typeof INVOICE_ORDER_BY)[number];
+
+export interface ListInvoicesQuery {
+  readonly rows: number;
+  readonly page?: number;
+  readonly number?: number;
+  readonly orderBy?: InvoiceOrderBy;
+  readonly asc?: boolean;
+  readonly status?: InvoiceStatus;
+}

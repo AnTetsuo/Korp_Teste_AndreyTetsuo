@@ -12,5 +12,10 @@ export const routes: Routes = [
     title: 'Novo produto',
     loadComponent: () => import('./features/products/product-create').then((m) => m.ProductCreate),
   },
+  {
+    path: 'notas',
+    title: 'Notas fiscais',
+    loadComponent: () => import('./features/invoices/invoice-list').then((m) => m.InvoiceList),
+  },
   { path: '**', redirectTo: 'produtos' },
 ];

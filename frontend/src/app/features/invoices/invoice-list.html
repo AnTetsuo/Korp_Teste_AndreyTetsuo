@@ -1,0 +1,104 @@
+<header class="page-header">
+  <h1>Notas fiscais</h1>
+</header>
+
+<div class="filters">
+  <mat-form-field appearance="outline">
+    <mat-label>Situação</mat-label>
+    <mat-select [value]="status()" (selectionChange)="onStatus($event.value)">
+      <mat-option [value]="null">Todas</mat-option>
+      @for (option of statuses; track option) {
+        <mat-option [value]="option">{{ option | invoiceStatus }}</mat-option>
+      }
+    </mat-select>
+  </mat-form-field>
+
+  <mat-form-field appearance="outline">
+    <mat-label>Número</mat-label>
+    <input
+      matInput
+      type="number"
+      min="1"
+      inputmode="numeric"
+      [value]="number()"
+      (keyup.enter)="onNumber(numberInput.value)"
+      #numberInput />
+    <button matIconSuffix mat-icon-button type="button" (click)="onNumber(numberInput.value)">
+      <mat-icon>search</mat-icon>
+    </button>
+  </mat-form-field>
+</div>
+
+@if (state(); as current) {
+  @if (current.status === 'loading') {
+    <mat-progress-bar mode="indeterminate" />
+  }
+
+  @if (current.status === 'error') {
+    <div class="feedback error">
+      <p>{{ current.error.message }}</p>
+      @if (current.error.traceId) {
+        <p class="trace">trace {{ current.error.traceId }}</p>
+      }
+      <button mat-stroked-button type="button" (click)="retry()">Tentar novamente</button>
+    </div>
+  }
+
+  @if (current.status === 'ready') {
+    @if (current.response.invoices.length === 0) {
+      <div class="feedback">
+        <p>Nenhuma nota fiscal encontrada.</p>
+      </div>
+    } @else {
+      <table
+        mat-table
+        [dataSource]="current.response.invoices"
+        matSort
+        [matSortActive]="sortColumn()"
+        [matSortDirection]="asc() ? 'asc' : 'desc'"
+        matSortDisableClear
+        (matSortChange)="onSort($event)">
+        <ng-container matColumnDef="number">
+          <th mat-header-cell *matHeaderCellDef mat-sort-header class="numeric">Número</th>
+          <td mat-cell *matCellDef="let invoice" class="numeric">{{ invoice.number }}</td>
+        </ng-container>
+
+        <ng-container matColumnDef="status">
+          <th mat-header-cell *matHeaderCellDef mat-sort-header>Situação</th>
+          <td mat-cell *matCellDef="let invoice">
+            <span class="status" [attr.data-status]="invoice.status">
+              {{ invoice.status | invoiceStatus }}
+            </span>
+          </td>
+        </ng-container>
+
+        <ng-container matColumnDef="itemCount">
+          <th mat-header-cell *matHeaderCellDef class="numeric">Itens</th>
+          <td mat-cell *matCellDef="let invoice" class="numeric">{{ invoice.itemCount }}</td>
+        </ng-container>
+
+        <ng-container matColumnDef="totalQuantity">
+          <th mat-header-cell *matHeaderCellDef class="numeric">Quantidade</th>
+          <td mat-cell *matCellDef="let invoice" class="numeric">{{ invoice.totalQuantity }}</td>
+        </ng-container>
+
+        <ng-container matColumnDef="createdAt">
+          <th mat-header-cell *matHeaderCellDef mat-sort-header>Criada em</th>
+          <td mat-cell *matCellDef="let invoice">
+            {{ invoice.createdAt | date: 'dd/MM/yyyy HH:mm' }}
+          </td>
+        </ng-container>
+
+        <tr mat-header-row *matHeaderRowDef="displayedColumns"></tr>
+        <tr mat-row *matRowDef="let row; columns: displayedColumns"></tr>
+      </table>
+    }
+
+    <mat-paginator
+      [length]="totalCount()"
+      [pageIndex]="current.response.page - 1"
+      [pageSize]="current.response.rows"
+      [pageSizeOptions]="pageSizeOptions"
+      (page)="onPage($event)" />
+  }
+}
