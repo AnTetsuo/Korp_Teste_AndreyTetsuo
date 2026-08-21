@@ -30,3 +30,22 @@ export interface ListInvoicesQuery {
   readonly asc?: boolean;
   readonly status?: InvoiceStatus;
 }
+
+export interface InvoiceLine {
+  readonly productId: string;
+  readonly productCode: string;
+  readonly description: string;
+  readonly quantity: number;
+}
+
+export interface CreateInvoiceRequest {
+  readonly items: readonly InvoiceLine[];
+}
+
+export interface CreateInvoiceResponse {
+  readonly id: string;
+  readonly number: number;
+  readonly status: InvoiceStatus;
+  readonly createdAt: string;
+  readonly items: readonly InvoiceLine[];
+}

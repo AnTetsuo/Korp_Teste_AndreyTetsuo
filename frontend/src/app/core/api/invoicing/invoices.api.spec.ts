@@ -86,6 +86,58 @@ describe('InvoicesApi', () => {
     request.flush(empty);
   });
 
+  it('posts the line items as an items array', () => {
+    api
+      .create({
+        items: [
+          { productId: 'p-1', productCode: 'SKU-1', description: 'Parafuso', quantity: 2 },
+          { productId: 'p-2', productCode: 'SKU-2', description: 'Porca', quantity: 5 },
+        ],
+      })
+      .subscribe();
+
+    const request = backend.expectOne('http://localhost:3001/invoices');
+
+    expect(request.request.method).toBe('POST');
+    expect(request.request.body).toEqual({
+      items: [
+        { productId: 'p-1', productCode: 'SKU-1', description: 'Parafuso', quantity: 2 },
+        { productId: 'p-2', productCode: 'SKU-2', description: 'Porca', quantity: 5 },
+      ],
+    });
+    request.flush(
+      { id: 'i-1', number: 42, status: 'Open', createdAt: '2026-08-21T00:00:00Z', items: [] },
+      { status: 201, statusText: 'Created' },
+    );
+  });
+
+  it('surfaces a duplicate product as an items-level error, not a per-line one', async () => {
+    const failure = new Promise<unknown>((resolve) =>
+      api
+        .create({
+          items: [
+            { productId: 'p-1', productCode: 'SKU-1', description: 'Parafuso', quantity: 1 },
+            { productId: 'p-1', productCode: 'SKU-1', description: 'Parafuso', quantity: 2 },
+          ],
+        })
+        .subscribe({ error: resolve }),
+    );
+
+    backend.expectOne('http://localhost:3001/invoices').flush(
+      {
+        title: 'One or more validation errors occurred.',
+        status: 400,
+        errors: { items: ["Product 'p-1' appears more than once."] },
+      },
+      { status: 400, statusText: 'Bad Request' },
+    );
+
+    const error = (await failure) as ApiError;
+
+    expect(error.kind).toBe('validation');
+    expect(error.errorsFor('items')).toEqual(["Product 'p-1' appears more than once."]);
+  });
+
   it('surfaces a rejected enum as an ApiError with no field to blame', async () => {
     const failure = new Promise<unknown>((resolve) =>
       api.list({ rows: 10 }).subscribe({ error: resolve }),

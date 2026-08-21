@@ -10,19 +10,20 @@ import { MatProgressBarModule } from '@angular/material/progress-bar';
 import { MatSelectModule } from '@angular/material/select';
 import { MatSortModule, Sort } from '@angular/material/sort';
 import { MatTableModule } from '@angular/material/table';
+import { RouterLink } from '@angular/router';
 import { catchError, map, of, startWith, switchMap } from 'rxjs';
 
-import { InvoicesApi } from '../../core/api/invoicing/invoices.api';
+import { InvoicesApi } from '../../../core/api/invoicing/invoices.api';
 import {
   INVOICE_STATUSES,
   InvoiceOrderBy,
   InvoiceStatus,
   ListInvoicesQuery,
   ListInvoicesResponse,
-} from '../../core/api/invoicing/models';
-import { PAGE_SIZE_OPTIONS } from '../../core/api/paging';
-import { ApiError } from '../../core/http/problem-details';
-import { InvoiceStatusPipe } from '../../shared/invoice-status.pipe';
+} from '../../../core/api/invoicing/models';
+import { PAGE_SIZE_OPTIONS } from '../../../core/api/paging';
+import { ApiError } from '../../../core/http/problem-details';
+import { InvoiceStatusPipe } from '../../../shared/invoice-status.pipe';
 
 type ListState =
   | { readonly status: 'loading' }
@@ -47,6 +48,7 @@ const ORDER_BY_TO_COLUMN: Readonly<Record<InvoiceOrderBy, string>> = {
   selector: 'korp-invoice-list',
   imports: [
     DatePipe,
+    RouterLink,
     InvoiceStatusPipe,
     MatTableModule,
     MatSortModule,

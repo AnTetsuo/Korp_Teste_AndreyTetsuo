@@ -1,0 +1,50 @@
+.picker {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  gap: 1rem;
+}
+
+.picker .product {
+  flex: 1 1 24rem;
+}
+
+.picker .quantity {
+  width: 9rem;
+}
+
+.picker button {
+  margin-top: 0.5rem;
+}
+
+.stock {
+  opacity: 0.6;
+  font-size: 0.8125rem;
+  margin-left: 0.5rem;
+}
+
+table {
+  width: 100%;
+}
+
+.numeric {
+  text-align: right;
+}
+
+.empty {
+  padding: 1.5rem 0;
+  opacity: 0.7;
+}
+
+.total {
+  text-align: right;
+  font-size: 0.875rem;
+  opacity: 0.8;
+}
+
+.actions {
+  display: flex;
+  gap: 0.75rem;
+  justify-content: flex-end;
+  margin-top: 0.5rem;
+}

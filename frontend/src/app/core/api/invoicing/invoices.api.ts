@@ -3,7 +3,12 @@ import { Injectable, inject } from '@angular/core';
 import { Observable } from 'rxjs';
 
 import { API_BASE_URLS } from '../../config/api-base-urls';
-import { ListInvoicesQuery, ListInvoicesResponse } from './models';
+import {
+  CreateInvoiceRequest,
+  CreateInvoiceResponse,
+  ListInvoicesQuery,
+  ListInvoicesResponse,
+} from './models';
 
 @Injectable({ providedIn: 'root' })
 export class InvoicesApi {
@@ -34,5 +39,9 @@ export class InvoicesApi {
     }
 
     return this.http.get<ListInvoicesResponse>(`${this.baseUrl}/invoices`, { params });
+  }
+
+  create(request: CreateInvoiceRequest): Observable<CreateInvoiceResponse> {
+    return this.http.post<CreateInvoiceResponse>(`${this.baseUrl}/invoices`, request);
   }
 }
