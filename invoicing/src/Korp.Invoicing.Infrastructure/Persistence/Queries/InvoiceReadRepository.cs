@@ -11,45 +11,41 @@ internal sealed class InvoiceReadRepository(InvoicingDbContext context) : IInvoi
         ListInvoicesQuery query,
         CancellationToken cancellationToken = default)
     {
-        var filtered = context.Invoices.AsNoTracking();
-
-        if (query.Number is { } number)
-            filtered = filtered.Where(invoice => invoice.Number == number);
-
-        if (query.Status is { } status)
-            filtered = filtered.Where(invoice => invoice.Status == status);
+        var filtered = Filter(context.Invoices, query);
 
         var totalCount = await filtered.CountAsync(cancellationToken);
 
         var page = query.Page ?? 1;
 
-        var rows = await Order(filtered, query.OrderBy, query.Asc ?? false)
+        var invoices = await Order(filtered, query.OrderBy, query.Asc ?? false)
             .Skip((page - 1) * query.Rows)
             .Take(query.Rows)
-            .Select(invoice => new
-            {
+            .Select(invoice => new UnitOfInvoice
+            (
                 invoice.Id,
                 invoice.Number,
-                invoice.Status,
+                invoice.Status.ToString(),
                 invoice.CreatedAt,
                 invoice.UpdatedAt,
-                ItemCount = invoice.Items.Count,
-                TotalQuantity = invoice.Items.Sum(item => (int?)item.Quantity) ?? 0
-            })
+                invoice.Items.Count,
+                invoice.Items.Sum(item => (int?)item.Quantity) ?? 0
+            ))
             .ToListAsync(cancellationToken);
 
-        var invoices = rows
-            .Select(row => new UnitOfInvoice(
-                row.Id,
-                row.Number,
-                row.Status.ToString(),
-                row.CreatedAt,
-                row.UpdatedAt,
-                row.ItemCount,
-                row.TotalQuantity))
-            .ToList();
-
         return new ListInvoicesResponse(invoices, page, query.Rows, totalCount);
+    }
+
+    private static IQueryable<Invoice> Filter(
+        IQueryable<Invoice> invoices,
+        ListInvoicesQuery query)
+    {
+        if (query.Number is { } number)
+            invoices = invoices.Where(invoice => invoice.Number == number);
+
+        if (query.Status is { } status)
+            invoices = invoices.Where(invoice => invoice.Status == status);
+
+        return invoices;
     }
 
     private static IQueryable<Invoice> Order(

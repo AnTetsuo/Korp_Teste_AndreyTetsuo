@@ -1,8 +1,10 @@
 using Api.Endpoints.Invoices.Create;
+using Api.Endpoints.Invoices.Get;
 using Api.Endpoints.Invoices.List;
 using Api.Endpoints.Invoices.Print;
 using Api.Extensions;
 using Application.Invoices.CreateInvoice;
+using Application.Invoices.GetInvoice;
 using Application.Invoices.ListInvoices;
 using Application.Invoices.PrintInvoice;
 
@@ -46,6 +48,26 @@ public static class InvoiceEndpoints
             .WithSummary("Lists invoices with their line counts and totals.")
             .Produces<ListInvoicesResponse>()
             .ProducesValidationProblem();
+
+        group.MapGet("/{id}", async (
+                [AsParameters] GetInvoiceRequest request,
+                GetInvoiceHandler handler,
+                CancellationToken cancellationToken) =>
+            {
+                var result = await handler.HandleAsync(request.ToQuery(), cancellationToken);
+
+                return result.ToHttpResult(Results.Ok);
+            })
+            .AddEndpointFilter<ValidationFilter<GetInvoiceRequest>>()
+            .WithName("GetInvoice")
+            .WithSummary("Reads one invoice with its line items and print outcome.")
+            .WithDescription(
+                "This is what a client polls while the status is Processing. FailureReason " +
+                "carries the reason stock rejected the last print and is cleared when the " +
+                "invoice is printed again; ClosedAt is set once stock confirms.")
+            .Produces<GetInvoiceResponse>()
+            .ProducesValidationProblem()
+            .ProducesProblem(StatusCodes.Status404NotFound);
 
         group.MapPost("/{id}/print", async (
                 [AsParameters] PrintInvoiceRequest request,

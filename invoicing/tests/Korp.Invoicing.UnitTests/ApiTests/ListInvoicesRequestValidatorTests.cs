@@ -43,17 +43,20 @@ public class ListInvoicesRequestValidatorTests
     [Theory]
     [InlineData(0)]
     [InlineData(-1)]
+    [InlineData(ListInvoicesRequestValidator.MinRows - 1)]
     [InlineData(ListInvoicesRequestValidator.MaxRows + 1)]
     public void Rows_OutsideRange_HasError(int rows)
     {
         var result = _validator.TestValidate(Request(rows: rows));
 
         result.ShouldHaveValidationErrorFor(x => x.Rows)
-            .WithErrorMessage($"Rows must be between 1 and {ListInvoicesRequestValidator.MaxRows}.");
+            .WithErrorMessage(
+                $"Rows must be between {ListInvoicesRequestValidator.MinRows} and " +
+                $"{ListInvoicesRequestValidator.MaxRows}.");
     }
 
     [Theory]
-    [InlineData(1)]
+    [InlineData(ListInvoicesRequestValidator.MinRows)]
     [InlineData(ListInvoicesRequestValidator.MaxRows)]
     public void Rows_AtRangeBoundaries_HasNoError(int rows)
     {

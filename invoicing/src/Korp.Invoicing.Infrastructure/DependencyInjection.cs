@@ -1,3 +1,4 @@
+using Application.Invoices.GetInvoice;
 using Application.Invoices.ListInvoices;
 using Application.Invoices.PrintOutcome;
 using Application.Messaging;
@@ -43,6 +44,7 @@ public static class DependencyInjection
         services.AddScoped<IInvoiceRepository, InvoiceRepository>();
 
         services.AddScoped<IInvoiceReadRepository, InvoiceReadRepository>();
+        services.AddScoped<IInvoiceDetailReadRepository, InvoiceDetailReadRepository>();
 
         services.AddMessaging(configuration, connectionString);
 
