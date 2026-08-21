@@ -70,6 +70,9 @@ public static class DependencyInjection
 
             options.AutoBuildMessageStorageOnStartup = AutoCreate.None;
 
+            options.Durability.DeadLetterQueueExpirationEnabled = true;
+            options.Durability.DeadLetterQueueExpiration = TimeSpan.FromDays(5);
+
             options.UseEntityFrameworkCoreTransactions();
 
             options.UseRabbitMq(factory =>
@@ -79,7 +82,9 @@ public static class DependencyInjection
                     factory.UserName = rabbit.User;
                     factory.Password = rabbit.Password;
                 })
-                .AutoProvision();
+                .AutoProvision()
+                .CustomizeDeadLetterQueueing(new DeadLetterQueue(
+                    "wolverine-dead-letter-queue", DeadLetterQueueMode.WolverineStorage));
 
             options.PublishMessage<InvoicePrintRequested>()
                 .ToRabbitQueue(MessagingConstants.StockOperationQueue);

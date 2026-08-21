@@ -16,6 +16,7 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using JasperFx.CodeGeneration.Model;
 using Wolverine;
+using Wolverine.ErrorHandling;
 using Wolverine.EntityFrameworkCore;
 using Wolverine.Postgresql;
 using Wolverine.RabbitMQ;
@@ -73,6 +74,9 @@ public static class DependencyInjection
 
             options.AutoBuildMessageStorageOnStartup = AutoCreate.None;
 
+            options.Durability.DeadLetterQueueExpirationEnabled = true;
+            options.Durability.DeadLetterQueueExpiration = TimeSpan.FromDays(5);
+
             options.UseEntityFrameworkCoreTransactions();
 
             options.UseRabbitMq(factory =>
@@ -82,7 +86,9 @@ public static class DependencyInjection
                     factory.UserName = rabbit.User;
                     factory.Password = rabbit.Password;
                 })
-                .AutoProvision();
+                .AutoProvision()
+                .CustomizeDeadLetterQueueing(new DeadLetterQueue(
+                    "wolverine-dead-letter-queue", DeadLetterQueueMode.WolverineStorage));
 
             options.Discovery.IncludeType<InvoicePrintRequestedHandler>();
 
@@ -94,6 +100,18 @@ public static class DependencyInjection
 
             options.PublishMessage<StockOperationRejected>()
                 .ToRabbitQueue(MessagingConstants.RepliesQueue);
+
+            options.Policies.OnException<ConcurrencyConflictException>()
+                .RetryWithCooldown(
+                    TimeSpan.FromMilliseconds(50),
+                    TimeSpan.FromMilliseconds(150),
+                    TimeSpan.FromMilliseconds(400))
+                .WithFullJitter()
+                .Then.ScheduleRetry(
+                    TimeSpan.FromSeconds(2),
+                    TimeSpan.FromSeconds(10),
+                    TimeSpan.FromSeconds(30),
+                    TimeSpan.FromMinutes(2));
 
             options.Policies.UseDurableOutboxOnAllSendingEndpoints();
         });
