@@ -1,0 +1,47 @@
+<header class="page-header">
+  <h1>Novo produto</h1>
+</header>
+
+<mat-card>
+  <mat-card-content>
+    <form [formGroup]="form" (ngSubmit)="submit()">
+      <mat-form-field appearance="outline">
+        <mat-label>Código</mat-label>
+        <input matInput formControlName="productCode" autocomplete="off" />
+        @if (form.controls.productCode.hasError('required')) {
+          <mat-error>Código é obrigatório.</mat-error>
+        }
+        @for (message of serverMessages('productCode'); track message) {
+          <mat-error>{{ message }}</mat-error>
+        }
+      </mat-form-field>
+
+      <mat-form-field appearance="outline">
+        <mat-label>Descrição</mat-label>
+        <input matInput formControlName="description" autocomplete="off" />
+        @if (form.controls.description.hasError('required')) {
+          <mat-error>Descrição é obrigatória.</mat-error>
+        }
+        @for (message of serverMessages('description'); track message) {
+          <mat-error>{{ message }}</mat-error>
+        }
+      </mat-form-field>
+
+      <mat-form-field appearance="outline">
+        <mat-label>Saldo inicial</mat-label>
+        <input matInput type="number" step="1" min="0" formControlName="initialQuantity" />
+        @if (form.controls.initialQuantity.hasError('min')) {
+          <mat-error>Saldo inicial não pode ser negativo.</mat-error>
+        }
+        @for (message of serverMessages('initialQuantity'); track message) {
+          <mat-error>{{ message }}</mat-error>
+        }
+      </mat-form-field>
+
+      <div class="actions">
+        <a mat-button routerLink="/produtos">Cancelar</a>
+        <button mat-flat-button type="submit" [disabled]="saving()">Cadastrar</button>
+      </div>
+    </form>
+  </mat-card-content>
+</mat-card>

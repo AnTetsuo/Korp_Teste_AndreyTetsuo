@@ -1,0 +1,84 @@
+<header class="page-header">
+  <h1>Produtos</h1>
+  <a mat-flat-button routerLink="/produtos/novo">
+    <mat-icon>add</mat-icon>
+    Novo produto
+  </a>
+</header>
+
+<mat-form-field appearance="outline" class="search">
+  <mat-label>Buscar por código ou descrição</mat-label>
+  <input
+    matInput
+    [value]="searchTerm()"
+    (keyup.enter)="onSearch(search.value)"
+    #search />
+  <button matIconSuffix mat-icon-button type="button" (click)="onSearch(search.value)">
+    <mat-icon>search</mat-icon>
+  </button>
+</mat-form-field>
+
+@if (state(); as current) {
+  @if (current.status === 'loading') {
+    <mat-progress-bar mode="indeterminate" />
+  }
+
+  @if (current.status === 'error') {
+    <div class="feedback error">
+      <p>{{ current.error.message }}</p>
+      @if (current.error.traceId) {
+        <p class="trace">trace {{ current.error.traceId }}</p>
+      }
+      <button mat-stroked-button type="button" (click)="retry()">Tentar novamente</button>
+    </div>
+  }
+
+  @if (current.status === 'ready') {
+    @if (current.response.products.length === 0) {
+      <div class="feedback">
+        <p>Nenhum produto encontrado.</p>
+      </div>
+    } @else {
+      <table
+        mat-table
+        [dataSource]="current.response.products"
+        matSort
+        [matSortActive]="orderBy() === 'Description' ? 'description' : 'productCode'"
+        [matSortDirection]="asc() ? 'asc' : 'desc'"
+        matSortDisableClear
+        (matSortChange)="onSort($event)">
+        <ng-container matColumnDef="productCode">
+          <th mat-header-cell *matHeaderCellDef mat-sort-header>Código</th>
+          <td mat-cell *matCellDef="let product">{{ product.productCode }}</td>
+        </ng-container>
+
+        <ng-container matColumnDef="description">
+          <th mat-header-cell *matHeaderCellDef mat-sort-header>Descrição</th>
+          <td mat-cell *matCellDef="let product">{{ product.description }}</td>
+        </ng-container>
+
+        <ng-container matColumnDef="stock">
+          <th mat-header-cell *matHeaderCellDef class="numeric">Saldo</th>
+          <td mat-cell *matCellDef="let product" class="numeric">{{ product.stock }}</td>
+        </ng-container>
+
+        <ng-container matColumnDef="dateCreated">
+          <th mat-header-cell *matHeaderCellDef mat-sort-header>Criado em</th>
+          <td mat-cell *matCellDef="let product">
+            {{ product.dateCreated | date: 'dd/MM/yyyy HH:mm' }}
+          </td>
+        </ng-container>
+
+        <tr mat-header-row *matHeaderRowDef="displayedColumns"></tr>
+        <tr mat-row *matRowDef="let row; columns: displayedColumns"></tr>
+      </table>
+    }
+
+    <mat-paginator
+      [length]="totalCount()"
+      [pageIndex]="current.response.page - 1"
+      [pageSize]="current.response.rows"
+      [pageSizeOptions]="pageSizeOptions"
+      (page)="onPage($event)" />
+  }
+}

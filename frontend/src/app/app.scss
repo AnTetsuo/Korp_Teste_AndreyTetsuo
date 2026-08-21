@@ -1,0 +1,15 @@
+.brand {
+  font-weight: 600;
+  margin-right: 2rem;
+}
+
+nav a.active {
+  text-decoration: underline;
+}
+
+main {
+  display: block;
+  max-width: 72rem;
+  margin: 0 auto;
+  padding: 1.5rem 1rem 3rem;
+}
