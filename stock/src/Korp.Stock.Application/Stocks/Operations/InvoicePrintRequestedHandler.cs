@@ -16,8 +16,6 @@ public sealed class InvoicePrintRequestedHandler(
     IOutbox outbox,
     ILogger<InvoicePrintRequestedHandler> logger)
 {
-    internal const int MaxAttempts = 3;
-
     public async Task HandleAsync(
         InvoicePrintRequested message,
         CancellationToken cancellationToken)
@@ -31,40 +29,29 @@ public sealed class InvoicePrintRequestedHandler(
             return;
         }
 
-        for (var attempt = 1; ; attempt++)
+        try
         {
-            try
+            var result = await AttemptAsync(message, cancellationToken);
+
+            if (!result.IsSuccess)
             {
-                var result = await AttemptAsync(message, cancellationToken);
-
-                if (!result.IsSuccess)
-                {
-                    await ReplyAsync(Reject(message.InvoiceId, result), cancellationToken);
-
-                    return;
-                }
-
-                logger.LogInformation(
-                    "Applied the stock operation for invoice {InvoiceId} across {LineCount} lines.",
-                    message.InvoiceId,
-                    result.Value.Lines.Count);
+                await ReplyAsync(Reject(message.InvoiceId, result), cancellationToken);
 
                 return;
             }
-            catch (ConcurrencyConflictException) when (attempt < MaxAttempts)
-            {
-                unitOfWork.DiscardChanges();
-            }
-            catch (UniqueConstraintViolationException)
-            {
-                logger.LogInformation(
-                    "Invoice {InvoiceId} was already applied by a concurrent handler.",
-                    message.InvoiceId);
 
-                await ReplyAsync(new StockOperationApplied(message.InvoiceId), cancellationToken);
+            logger.LogInformation(
+                "Applied the stock operation for invoice {InvoiceId} across {LineCount} lines.",
+                message.InvoiceId,
+                result.Value.Lines.Count);
+        }
+        catch (UniqueConstraintViolationException)
+        {
+            logger.LogInformation(
+                "Invoice {InvoiceId} was already applied by a concurrent handler.",
+                message.InvoiceId);
 
-                return;
-            }
+            await ReplyAsync(new StockOperationApplied(message.InvoiceId), cancellationToken);
         }
     }
     
