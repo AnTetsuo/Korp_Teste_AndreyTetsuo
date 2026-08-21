@@ -6,6 +6,7 @@ import { API_BASE_URLS } from '../../config/api-base-urls';
 import {
   CreateInvoiceRequest,
   CreateInvoiceResponse,
+  InvoiceDetail,
   ListInvoicesQuery,
   ListInvoicesResponse,
 } from './models';
@@ -39,6 +40,10 @@ export class InvoicesApi {
     }
 
     return this.http.get<ListInvoicesResponse>(`${this.baseUrl}/invoices`, { params });
+  }
+
+  get(id: string): Observable<InvoiceDetail> {
+    return this.http.get<InvoiceDetail>(`${this.baseUrl}/invoices/${id}`);
   }
 
   create(request: CreateInvoiceRequest): Observable<CreateInvoiceResponse> {

@@ -1,0 +1,91 @@
+.page-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.page-header h1 {
+  margin: 0.25rem 0 0;
+}
+
+.panel {
+  margin-bottom: 1rem;
+}
+
+dl {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(11rem, 1fr));
+  gap: 1rem;
+  margin: 0;
+}
+
+dt {
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  opacity: 0.7;
+}
+
+dd {
+  margin: 0.25rem 0 0;
+}
+
+.status {
+  display: inline-block;
+  padding: 0.15rem 0.6rem;
+  border-radius: 1rem;
+  font-size: 0.8125rem;
+  background: var(--mat-sys-surface-container-high);
+}
+
+.status[data-status='Processing'] {
+  background: var(--mat-sys-secondary-container);
+  color: var(--mat-sys-on-secondary-container);
+}
+
+.status[data-status='Closed'] {
+  background: var(--mat-sys-tertiary-container);
+  color: var(--mat-sys-on-tertiary-container);
+}
+
+.hint {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin: 1rem 0 0;
+  font-size: 0.875rem;
+}
+
+.hint.failure {
+  color: var(--mat-sys-error);
+}
+
+table {
+  width: 100%;
+}
+
+.numeric {
+  text-align: right;
+}
+
+.total {
+  text-align: right;
+  font-size: 0.875rem;
+  opacity: 0.8;
+}
+
+.feedback {
+  padding: 2rem 1rem;
+  text-align: center;
+}
+
+.feedback.error {
+  color: var(--mat-sys-error);
+}
+
+.trace {
+  font-family: monospace;
+  font-size: 0.75rem;
+  opacity: 0.7;
+}

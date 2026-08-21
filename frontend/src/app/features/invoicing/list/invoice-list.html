@@ -64,7 +64,9 @@
         (matSortChange)="onSort($event)">
         <ng-container matColumnDef="number">
           <th mat-header-cell *matHeaderCellDef mat-sort-header class="numeric">Número</th>
-          <td mat-cell *matCellDef="let invoice" class="numeric">{{ invoice.number }}</td>
+          <td mat-cell *matCellDef="let invoice" class="numeric">
+            <a [routerLink]="['/notas', invoice.id]">{{ invoice.number }}</a>
+          </td>
         </ng-container>
 
         <ng-container matColumnDef="status">

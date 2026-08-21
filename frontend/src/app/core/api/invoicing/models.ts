@@ -49,3 +49,14 @@ export interface CreateInvoiceResponse {
   readonly createdAt: string;
   readonly items: readonly InvoiceLine[];
 }
+
+export interface InvoiceDetail {
+  readonly id: string;
+  readonly number: number;
+  readonly status: InvoiceStatus;
+  readonly createdAt: string;
+  readonly updatedAt: string;
+  readonly closedAt: string | null;
+  readonly failureReason: string | null;
+  readonly items: readonly InvoiceLine[];
+}
