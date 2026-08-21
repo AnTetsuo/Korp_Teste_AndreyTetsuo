@@ -31,6 +31,7 @@ public sealed class StockOperationAppliedHandler(
         }
 
         var wasAlreadyClosed = invoice.Status == InvoiceStatus.Closed;
+        var wasReopened = invoice.Status == InvoiceStatus.Open;
 
         var transition = invoice.Close();
 
@@ -54,6 +55,16 @@ public sealed class StockOperationAppliedHandler(
         }
 
         await unitOfWork.SaveChangesAsync(cancellationToken);
+
+        if (wasReopened)
+        {
+            logger.LogInformation(
+                "Closed invoice {InvoiceId} on a late confirmation; it had been reopened after an "
+                + "attempt that never came back.",
+                message.InvoiceId);
+
+            return;
+        }
 
         logger.LogInformation(
             "Closed invoice {InvoiceId} after stock confirmed the operation.",

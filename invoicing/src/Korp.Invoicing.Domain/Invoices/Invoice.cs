@@ -70,17 +70,13 @@ public class Invoice
 
         return Result.Success();
     }
-
-    /// <summary>
-    /// Closes a printing invoice. Idempotent on purpose: stock replies at least once, so a
-    /// redelivered confirmation must be a no-op rather than a conflict.
-    /// </summary>
+    
     public Result Close()
     {
         if (Status == InvoiceStatus.Closed)
             return Result.Success();
 
-        if (Status != InvoiceStatus.Processing)
+        if (Status == InvoiceStatus.Open && FailureReason is null)
             return Result.Conflict(
                 $"Only a printing invoice can be closed; invoice {Number} is {Status}.");
 
@@ -92,10 +88,6 @@ public class Invoice
         return Result.Success();
     }
 
-    /// <summary>
-    /// Returns a printing invoice to open, recording why, so the user can print it again.
-    /// Closed is terminal — a confirmation already won, whatever the arrival order.
-    /// </summary>
     public Result FailPrinting(string reason)
     {
         var errors = new ValidationErrors()

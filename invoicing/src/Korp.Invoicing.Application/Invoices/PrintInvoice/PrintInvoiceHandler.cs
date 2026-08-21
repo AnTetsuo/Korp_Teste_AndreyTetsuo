@@ -1,4 +1,5 @@
 using Application.Common;
+using Application.Invoices.PrintOutcome;
 using Application.Messaging;
 using Application.Messaging.Contracts;
 using Domain.Common;
@@ -32,6 +33,11 @@ public sealed class PrintInvoiceHandler(
             [.. invoice.Items.Select(item => new InvoicePrintLine(item.ProductId, item.Quantity))]);
 
         await outbox.PublishAsync(message, cancellationToken);
+
+        await outbox.ScheduleAsync(
+            new PrintTimeoutCheck(invoice.Id, 1),
+            PrintTimeoutCheckHandler.FirstDelay,
+            cancellationToken);
 
         try
         {

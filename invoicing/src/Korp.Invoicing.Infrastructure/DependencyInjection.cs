@@ -16,6 +16,7 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Wolverine;
 using Wolverine.EntityFrameworkCore;
+using Wolverine.ErrorHandling;
 using Wolverine.Postgresql;
 using Wolverine.RabbitMQ;
 
@@ -70,6 +71,7 @@ public static class DependencyInjection
 
             options.AutoBuildMessageStorageOnStartup = AutoCreate.None;
 
+            options.Durability.AlwaysMakeScheduledMessagesDurable = true;
             options.Durability.DeadLetterQueueExpirationEnabled = true;
             options.Durability.DeadLetterQueueExpiration = TimeSpan.FromDays(5);
 
@@ -91,9 +93,17 @@ public static class DependencyInjection
 
             options.Discovery.IncludeType<StockOperationAppliedHandler>();
             options.Discovery.IncludeType<StockOperationRejectedHandler>();
+            options.Discovery.IncludeType<PrintTimeoutCheckHandler>();
 
             options.ListenToRabbitQueue(MessagingConstants.RepliesQueue)
                 .UseDurableInbox();
+
+            options.Policies.OnException<ConcurrencyConflictException>()
+                .RetryWithCooldown(
+                    TimeSpan.FromMilliseconds(50),
+                    TimeSpan.FromMilliseconds(150),
+                    TimeSpan.FromMilliseconds(400))
+                .WithFullJitter();
 
             options.Policies.UseDurableOutboxOnAllSendingEndpoints();
         });

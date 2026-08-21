@@ -382,4 +382,31 @@ public class InvoiceTests
             () => invoice.Status.ShouldBe(InvoiceStatus.Processing),
             () => invoice.FailureReason.ShouldBeNull());
     }
+    [Fact]
+    public void Close_FromOpenAfterAnAttemptThatFailed_Closes()
+    {
+        var invoice = Invoice.Open(1, [Item()]).Value;
+        invoice.BeginPrinting();
+        invoice.FailPrinting("Stock service did not confirm the consumption; try printing again.");
+
+        var result = invoice.Close();
+
+        invoice.ShouldSatisfyAllConditions(
+            () => result.IsSuccess.ShouldBeTrue(),
+            () => invoice.Status.ShouldBe(InvoiceStatus.Closed),
+            () => invoice.FailureReason.ShouldBeNull(),
+            () => invoice.ClosedAt.ShouldNotBeNull());
+    }
+
+    [Fact]
+    public void Close_FromOpenAfterARejection_Closes()
+    {
+        var invoice = Invoice.Open(1, [Item()]).Value;
+        invoice.BeginPrinting();
+        invoice.FailPrinting("Insufficient balance: 0 available, 1 requested.");
+
+        invoice.Close();
+
+        invoice.Status.ShouldBe(InvoiceStatus.Closed);
+    }
 }

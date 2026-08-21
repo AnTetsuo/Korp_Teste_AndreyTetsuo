@@ -30,6 +30,13 @@ try
 
     builder.Services.AddProblemDetails();
 
+    builder.Services.AddCors(options => options.AddDefaultPolicy(policy => policy
+        .WithOrigins(builder.Configuration
+            .GetValue("Cors:AllowedOrigins", "http://localhost:4200")!
+            .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
+        .AllowAnyHeader()
+        .AllowAnyMethod()));
+
     builder.Services.Configure<RouteHandlerOptions>(o => o.ThrowOnBadRequest = false);
 
     builder.Services.AddValidatorsFromAssemblyContaining<CreateProductRequestValidator>();
@@ -40,6 +47,8 @@ try
     var app = builder.Build();
 
     app.UseExceptionHandler();
+
+    app.UseCors();
 
     app.UseStatusCodePages();
 

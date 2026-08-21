@@ -1,5 +1,6 @@
 using Application.Messaging;
 using Infrastructure.Persistence;
+using Wolverine;
 using Wolverine.EntityFrameworkCore;
 
 namespace Infrastructure.Messaging;
@@ -25,6 +26,13 @@ internal sealed class WolverineOutbox : IOutbox
         CancellationToken cancellationToken = default)
         where TMessage : notnull =>
         await _outbox.PublishAsync(message);
+
+    public async Task ScheduleAsync<TMessage>(
+        TMessage message,
+        TimeSpan delay,
+        CancellationToken cancellationToken = default)
+        where TMessage : notnull =>
+        await _outbox.ScheduleAsync(message, delay);
 
     public Task SaveChangesAndFlushAsync(CancellationToken cancellationToken = default) =>
         _outbox.SaveChangesAndFlushMessagesAsync(cancellationToken);
