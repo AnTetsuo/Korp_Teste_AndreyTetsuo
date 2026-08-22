@@ -75,11 +75,25 @@
           <p class="hint checking">
             Ainda confirmando com o estoque.
           </p>
-        } @else if (current.invoice.failureReason) {
-          <p class="hint failure">
-            <mat-icon>error_outline</mat-icon>
-            {{ current.invoice.failureReason }}
-          </p>
+        } @else if (failure(); as printFailure) {
+          <div class="failure-panel">
+            <p class="hint failure">
+              <mat-icon>error_outline</mat-icon>
+              {{ printFailure.headline }}
+            </p>
+
+            @if (printFailure.lines.length > 0) {
+              <ul class="shortages">
+                @for (line of printFailure.lines; track line.productId) {
+                  <li>{{ line.text }}</li>
+                }
+              </ul>
+            }
+
+            @if (printFailure.rawReason) {
+              <p class="raw-reason">{{ printFailure.rawReason }}</p>
+            }
+          </div>
         }
       </mat-card-content>
     </mat-card>
@@ -103,7 +117,10 @@
           </ng-container>
 
           <tr mat-header-row *matHeaderRowDef="displayedColumns"></tr>
-          <tr mat-row *matRowDef="let row; columns: displayedColumns"></tr>
+          <tr
+            mat-row
+            *matRowDef="let row; columns: displayedColumns"
+            [class.failed]="failed(row.productId)"></tr>
         </table>
 
         <p class="total">

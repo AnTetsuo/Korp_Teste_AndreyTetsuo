@@ -50,6 +50,14 @@ export interface CreateInvoiceResponse {
   readonly items: readonly InvoiceLine[];
 }
 
+export const INSUFFICIENT_STOCK = 'insufficient_stock';
+
+export interface InvoiceFailureLine {
+  readonly productId: string;
+  readonly requested: number;
+  readonly available: number;
+}
+
 export interface InvoiceDetail {
   readonly id: string;
   readonly number: number;
@@ -58,6 +66,8 @@ export interface InvoiceDetail {
   readonly updatedAt: string;
   readonly closedAt: string | null;
   readonly failureReason: string | null;
+  readonly failureCode: string | null;
+  readonly failureLines: readonly InvoiceFailureLine[];
   readonly items: readonly InvoiceLine[];
 }
 

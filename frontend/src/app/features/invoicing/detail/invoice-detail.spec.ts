@@ -12,6 +12,16 @@ import { GRACE_TICKS, POLL_INTERVAL_MS, InvoiceDetail } from './invoice-detail';
 const ID = '01a0263a-4083-7839-800b-26e01bd0c7b0';
 const URL = `http://localhost:3001/invoices/${ID}`;
 const REASON = 'Insufficient balance: 2 available, 999 requested.';
+const PT_REASON = 'BHS112613-3: 2 em estoque, 3 solicitadas.';
+
+function rejected(): Partial<Invoice> {
+  return {
+    status: 'Open',
+    failureReason: REASON,
+    failureCode: 'insufficient_stock',
+    failureLines: [{ productId: 'p-1', requested: 3, available: 2 }],
+  };
+}
 
 function invoice(overrides: Partial<Invoice> = {}): Invoice {
   return {
@@ -22,6 +32,8 @@ function invoice(overrides: Partial<Invoice> = {}): Invoice {
     updatedAt: '2026-08-21T21:29:06Z',
     closedAt: null,
     failureReason: null,
+    failureCode: null,
+    failureLines: [],
     items: [
       { productId: 'p-1', productCode: 'BHS112613-3', description: 'Alavanca Direita', quantity: 3 },
       { productId: 'p-2', productCode: 'ATL0138', description: 'Alavanca Direita', quantity: 2 },
@@ -163,17 +175,17 @@ describe('InvoiceDetail', () => {
   });
 
   it('softens the copy during the grace window, then reveals the reason', async () => {
-    await open(invoice({ status: 'Open', failureReason: REASON }));
+    await open(invoice(rejected()));
 
     expect(text()).toContain('Ainda confirmando com o estoque');
-    expect(text()).not.toContain(REASON);
+    expect(text()).not.toContain(PT_REASON);
 
     for (let i = 0; i < GRACE_TICKS; i++) {
       await tick();
-      answer(invoice({ status: 'Open', failureReason: REASON }));
+      answer(invoice(rejected()));
     }
 
-    expect(text()).toContain(REASON);
+    expect(text()).toContain(PT_REASON);
     expect(text()).not.toContain('Ainda confirmando com o estoque');
 
     await tick();
@@ -181,13 +193,13 @@ describe('InvoiceDetail', () => {
   });
 
   it('ends the grace window early when a late confirmation closes the invoice', async () => {
-    await open(invoice({ status: 'Open', failureReason: REASON }));
+    await open(invoice(rejected()));
 
     await tick();
     answer(invoice({ status: 'Closed', closedAt: '2026-08-21T22:00:00Z' }));
 
     expect(text()).toContain('Fechada');
-    expect(text()).not.toContain(REASON);
+    expect(text()).not.toContain(PT_REASON);
 
     await tick();
     backend.verify();
@@ -268,15 +280,35 @@ describe('InvoiceDetail', () => {
 
     fixture?.detectChanges();
     await vi.advanceTimersByTimeAsync(0);
-    answer(invoice({ status: 'Open', failureReason: REASON }));
+    answer(invoice(rejected()));
 
     for (let i = 0; i < GRACE_TICKS; i++) {
       await tick();
-      answer(invoice({ status: 'Open', failureReason: REASON }));
+      answer(invoice(rejected()));
     }
 
     expect(snackBar).not.toHaveBeenCalled();
-    expect(text()).toContain(REASON);
+    expect(text()).toContain(PT_REASON);
+  });
+
+  it('marks only the failing row, and never shows a raw product id', async () => {
+    await open(invoice(rejected()));
+
+    for (let i = 0; i < GRACE_TICKS; i++) {
+      await tick();
+      answer(invoice(rejected()));
+    }
+
+    const rows = (fixture?.nativeElement as HTMLElement).querySelectorAll('tr[mat-row]');
+
+    expect(rows.length).toBe(2);
+    expect(rows[0]?.classList.contains('failed')).toBe(true);
+    expect(rows[1]?.classList.contains('failed')).toBe(false);
+    expect(text()).not.toContain('p-1');
+    expect(text()).toContain('BHS112613-3');
+
+    await tick();
+    backend.verify();
   });
 
   it('treats a 409 as a normal outcome and watches anyway', async () => {

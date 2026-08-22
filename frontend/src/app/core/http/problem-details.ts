@@ -135,3 +135,11 @@ function readFieldErrors(
 
   return collected;
 }
+
+export function describeForSupport(error: ApiError): string {
+  const traceable = error.kind === 'server' || error.kind === 'unknown';
+
+  return traceable && error.traceId !== null
+    ? `${error.message} (trace ${error.traceId})`
+    : error.message;
+}

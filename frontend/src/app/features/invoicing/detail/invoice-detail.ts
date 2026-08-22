@@ -27,11 +27,12 @@ import {
 
 import { InvoicesApi } from '../../../core/api/invoicing/invoices.api';
 import { InvoiceDetail as Invoice } from '../../../core/api/invoicing/models';
-import { ApiError } from '../../../core/http/problem-details';
+import { ApiError, describeForSupport } from '../../../core/http/problem-details';
 import { InvoiceStatusPipe } from '../../../shared/invoice-status.pipe';
+import { describePrintFailure } from '../../../shared/print-failure';
 
 export const POLL_INTERVAL_MS = 1000;
-export const GRACE_TICKS = 10;
+export const GRACE_TICKS = 5;
 
 type DetailState =
   | { readonly status: 'loading' }
@@ -86,6 +87,16 @@ export class InvoiceDetail {
     { initialValue: { status: 'loading' } as DetailState },
   );
 
+  protected readonly failure = computed(() => {
+    const current = this.state();
+
+    return current.status === 'ready' ? describePrintFailure(current.invoice) : null;
+  });
+
+  protected failed(productId: string): boolean {
+    return this.failure()?.productIds.has(productId) ?? false;
+  }
+
   protected readonly totalQuantity = computed(() => {
     const current = this.state();
 
@@ -124,7 +135,7 @@ export class InvoiceDetail {
           }
 
           this.printing.set(false);
-          this.snackBar.open(apiError.message, 'Fechar', { duration: 6000 });
+          this.snackBar.open(describeForSupport(apiError), 'Fechar', { duration: 8000 });
         },
       });
   }

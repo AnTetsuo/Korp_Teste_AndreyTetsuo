@@ -10,7 +10,7 @@ import { Router, RouterLink } from '@angular/router';
 
 import { ProductsApi } from '../../core/api/stock/products.api';
 import { apiErrorsOf, applyApiErrors, clearApiError } from '../../core/http/api-form-errors';
-import { ApiError } from '../../core/http/problem-details';
+import { ApiError, describeForSupport } from '../../core/http/problem-details';
 
 @Component({
   selector: 'korp-product-create',
@@ -79,7 +79,7 @@ export class ProductCreate {
           const unmatched = applyApiErrors(this.form, apiError);
 
           this.snackBar.open(
-            unmatched.length > 0 ? unmatched.join(' ') : apiError.message,
+            unmatched.length > 0 ? unmatched.join(' ') : describeForSupport(apiError),
             'Fechar',
             { duration: 6000 },
           );

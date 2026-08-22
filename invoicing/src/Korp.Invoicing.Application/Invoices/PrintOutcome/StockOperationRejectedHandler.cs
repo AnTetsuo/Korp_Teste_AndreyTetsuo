@@ -33,7 +33,11 @@ public sealed class StockOperationRejectedHandler(
 
         var wasPrinting = invoice.Status == InvoiceStatus.Processing;
 
-        var transition = invoice.FailPrinting(Fit(message.Reason));
+        var transition = invoice.FailPrinting(
+            Fit(message.Reason),
+            message.Code,
+            [.. (message.Lines ?? []).Select(line =>
+                new InvoiceFailureLine(line.ProductId, line.Requested, line.Available))]);
 
         if (!transition.IsSuccess)
         {

@@ -8,7 +8,11 @@ public sealed record GetInvoiceResponse(
     DateTime UpdatedAt,
     DateTime? ClosedAt,
     string? FailureReason,
+    string? FailureCode,
+    IReadOnlyList<InvoiceFailureLine> FailureLines,
     IReadOnlyList<InvoiceItemLine> Items);
+
+public sealed record InvoiceFailureLine(Guid ProductId, int Requested, int Available);
 
 public sealed record InvoiceItemLine(
     Guid ProductId,

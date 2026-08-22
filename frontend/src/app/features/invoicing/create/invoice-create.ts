@@ -17,7 +17,7 @@ import { InvoicesApi } from '../../../core/api/invoicing/invoices.api';
 import { InvoiceLine } from '../../../core/api/invoicing/models';
 import { UnitOfProduct } from '../../../core/api/stock/models';
 import { ProductsApi } from '../../../core/api/stock/products.api';
-import { ApiError } from '../../../core/http/problem-details';
+import { ApiError, describeForSupport } from '../../../core/http/problem-details';
 
 @Component({
   selector: 'korp-invoice-create',
@@ -170,7 +170,7 @@ export class InvoiceCreate {
           const messages = Object.values(apiError.fieldErrors).flat();
 
           this.snackBar.open(
-            messages.length > 0 ? messages.join(' ') : apiError.message,
+            messages.length > 0 ? messages.join(' ') : describeForSupport(apiError),
             'Fechar',
             { duration: 8000 },
           );

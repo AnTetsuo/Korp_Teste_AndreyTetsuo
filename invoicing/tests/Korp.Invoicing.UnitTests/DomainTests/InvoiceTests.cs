@@ -312,6 +312,76 @@ public class InvoiceTests
     }
 
     [Fact]
+    public void FailPrinting_RecordsTheStructuredShortage()
+    {
+        var productId = Guid.CreateVersion7();
+        var invoice = Invoice.Open(1, [Item()]).Value;
+        invoice.BeginPrinting();
+
+        invoice.FailPrinting(
+            "Stock cannot satisfy every line of this invoice.",
+            "insufficient_stock",
+            [new InvoiceFailureLine(productId, 999, 2)]);
+
+        invoice.ShouldSatisfyAllConditions(
+            () => invoice.FailureCode.ShouldBe("insufficient_stock"),
+            () => invoice.FailureLines.Count.ShouldBe(1),
+            () => invoice.FailureLines[0].ProductId.ShouldBe(productId),
+            () => invoice.FailureLines[0].Requested.ShouldBe(999),
+            () => invoice.FailureLines[0].Available.ShouldBe(2));
+    }
+
+    [Fact]
+    public void FailPrinting_WithoutStructuredDetail_LeavesTheLinesEmpty()
+    {
+        var invoice = Invoice.Open(1, [Item()]).Value;
+        invoice.BeginPrinting();
+
+        invoice.FailPrinting("Stock rejected this invoice without giving a reason.");
+
+        invoice.ShouldSatisfyAllConditions(
+            () => invoice.FailureCode.ShouldBeNull(),
+            () => invoice.FailureLines.ShouldBeEmpty());
+    }
+
+    [Fact]
+    public void BeginPrinting_ClearsTheWholeFailure_NotJustTheReason()
+    {
+        var invoice = Invoice.Open(1, [Item()]).Value;
+        invoice.BeginPrinting();
+        invoice.FailPrinting(
+            "Stock cannot satisfy every line of this invoice.",
+            "insufficient_stock",
+            [new InvoiceFailureLine(Guid.CreateVersion7(), 999, 2)]);
+
+        invoice.BeginPrinting();
+
+        invoice.ShouldSatisfyAllConditions(
+            () => invoice.FailureReason.ShouldBeNull(),
+            () => invoice.FailureCode.ShouldBeNull(),
+            () => invoice.FailureLines.ShouldBeEmpty());
+    }
+
+    [Fact]
+    public void Close_ClearsTheWholeFailure_NotJustTheReason()
+    {
+        var invoice = Invoice.Open(1, [Item()]).Value;
+        invoice.BeginPrinting();
+        invoice.FailPrinting(
+            "Stock cannot satisfy every line of this invoice.",
+            "insufficient_stock",
+            [new InvoiceFailureLine(Guid.CreateVersion7(), 999, 2)]);
+
+        invoice.Close();
+
+        invoice.ShouldSatisfyAllConditions(
+            () => invoice.Status.ShouldBe(InvoiceStatus.Closed),
+            () => invoice.FailureReason.ShouldBeNull(),
+            () => invoice.FailureCode.ShouldBeNull(),
+            () => invoice.FailureLines.ShouldBeEmpty());
+    }
+
+    [Fact]
     public void FailPrinting_WhenAlreadyReopened_IsSuccessAndKeepsTheFirstReason()
     {
         var invoice = Invoice.Open(1, [Item()]).Value;

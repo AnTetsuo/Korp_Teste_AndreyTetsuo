@@ -7,6 +7,7 @@ namespace Domain.Invoices;
 public class Invoice
 {
     public const int FailureReasonMaxLength = 1000;
+    public const int FailureCodeMaxLength = 40;
 
     private readonly List<InvoiceItem> _items = [];
 
@@ -17,6 +18,8 @@ public class Invoice
     public DateTime UpdatedAt { get; set; }
     public DateTime? ClosedAt { get; set; }
     public string? FailureReason { get; set; }
+    public string? FailureCode { get; set; }
+    public IReadOnlyList<InvoiceFailureLine> FailureLines { get; set; } = [];
 
     public IReadOnlyCollection<InvoiceItem> Items => _items.AsReadOnly();
 
@@ -65,7 +68,7 @@ public class Invoice
                 $"Only an open invoice can be printed; invoice {Number} is {Status}.");
 
         Status = InvoiceStatus.Processing;
-        FailureReason = null;
+        ClearFailure();
         UpdatedAt = DateTime.UtcNow;
 
         return Result.Success();
@@ -81,14 +84,17 @@ public class Invoice
                 $"Only a printing invoice can be closed; invoice {Number} is {Status}.");
 
         Status = InvoiceStatus.Closed;
-        FailureReason = null;
+        ClearFailure();
         ClosedAt = DateTime.UtcNow;
         UpdatedAt = ClosedAt.Value;
 
         return Result.Success();
     }
 
-    public Result FailPrinting(string reason)
+    public Result FailPrinting(
+        string reason,
+        string? code = null,
+        IReadOnlyList<InvoiceFailureLine>? lines = null)
     {
         var errors = new ValidationErrors()
             .RequireText(reason, nameof(reason), "Failure reason", FailureReasonMaxLength);
@@ -105,9 +111,18 @@ public class Invoice
 
         Status = InvoiceStatus.Open;
         FailureReason = reason.Trim();
+        FailureCode = code;
+        FailureLines = lines ?? [];
         UpdatedAt = DateTime.UtcNow;
 
         return Result.Success();
+    }
+
+    private void ClearFailure()
+    {
+        FailureReason = null;
+        FailureCode = null;
+        FailureLines = [];
     }
 
     private static void Validate(InvoiceItemDto item, int index, ValidationErrors errors) =>

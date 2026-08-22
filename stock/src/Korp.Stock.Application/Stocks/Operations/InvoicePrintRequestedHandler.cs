@@ -24,18 +24,26 @@ public sealed class InvoicePrintRequestedHandler(
 
         if (!shape.IsSuccess)
         {
-            await ReplyAsync(Reject(message.InvoiceId, shape), cancellationToken);
+            await ReplyAsync(
+                Reject(message.InvoiceId, shape, StockOperationRejected.InvalidRequest, []),
+                cancellationToken);
 
             return;
         }
 
         try
         {
-            var result = await AttemptAsync(message, cancellationToken);
+            var (result, shortages) = await AttemptAsync(message, cancellationToken);
 
             if (!result.IsSuccess)
             {
-                await ReplyAsync(Reject(message.InvoiceId, result), cancellationToken);
+                await ReplyAsync(
+                    Reject(
+                        message.InvoiceId,
+                        result,
+                        StockOperationRejected.InsufficientStock,
+                        shortages),
+                    cancellationToken);
 
                 return;
             }
@@ -64,9 +72,8 @@ public sealed class InvoicePrintRequestedHandler(
         await outbox.SaveChangesAndFlushAsync(cancellationToken);
     }
 
-    private async Task<Result<OperationResponse>> AttemptAsync(
-        InvoicePrintRequested message,
-        CancellationToken cancellationToken)
+    private async Task<(Result<OperationResponse> Result, IReadOnlyList<RejectedLine> Shortages)>
+        AttemptAsync(InvoicePrintRequested message, CancellationToken cancellationToken)
     {
         var existing = await references.GetAsync(
             EntityType.Invoice, message.InvoiceId, cancellationToken);
@@ -76,12 +83,12 @@ public sealed class InvoicePrintRequestedHandler(
             var applied = await operations.GetByInvoiceIdAsync(message.InvoiceId, cancellationToken);
 
             if (applied is null)
-                return Result<OperationResponse>.Error(
-                    $"Invoice '{message.InvoiceId}' is bound to an operation that recorded no movements.");
+                return (Result<OperationResponse>.Error(
+                    $"Invoice '{message.InvoiceId}' is bound to an operation that recorded no movements."), []);
 
             await ReplyAsync(new StockOperationApplied(message.InvoiceId), cancellationToken);
 
-            return Result<OperationResponse>.Success(applied);
+            return (Result<OperationResponse>.Success(applied), []);
         }
 
         var loaded = await stocks.GetByProductIdsAsync(
@@ -90,6 +97,7 @@ public sealed class InvoicePrintRequestedHandler(
         var byProduct = loaded.ToDictionary(stock => stock.ProductId);
 
         var failures = new List<ValidationError>();
+        var shortages = new List<RejectedLine>();
 
         foreach (var line in message.Lines)
         {
@@ -97,24 +105,28 @@ public sealed class InvoicePrintRequestedHandler(
             {
                 failures.Add(new ValidationError(
                     line.ProductId.ToString(), "No stock is registered for this product."));
+                shortages.Add(new RejectedLine(line.ProductId, line.Quantity, 0));
 
                 continue;
             }
 
             if (stock.Quantity < line.Quantity)
+            {
                 failures.Add(new ValidationError(
                     line.ProductId.ToString(),
                     $"Insufficient balance: {stock.Quantity} available, {line.Quantity} requested."));
+                shortages.Add(new RejectedLine(line.ProductId, line.Quantity, stock.Quantity));
+            }
         }
 
         if (failures.Count > 0)
-            return Result<OperationResponse>.Conflict(
-                "Stock cannot satisfy every line of this invoice.", [.. failures]);
+            return (Result<OperationResponse>.Conflict(
+                "Stock cannot satisfy every line of this invoice.", [.. failures]), shortages);
 
         var referenceResult = EntityReference.BindReference(EntityType.Invoice, message.InvoiceId);
 
         if (!referenceResult.IsSuccess)
-            return Result<OperationResponse>.Invalid([.. referenceResult.ValidationErrors]);
+            return (Result<OperationResponse>.Invalid([.. referenceResult.ValidationErrors]), []);
 
         var reference = referenceResult.Value;
 
@@ -129,11 +141,12 @@ public sealed class InvoicePrintRequestedHandler(
             var movement = stock.Operate(line.Quantity, reference.Id);
 
             if (!movement.IsSuccess)
-                return Result<OperationResponse>.Conflict(
-                    "Stock cannot satisfy every line of this invoice.",
-                    new ValidationError(
-                        line.ProductId.ToString(),
-                        movement.ErrorMessage ?? "The line was rejected."));
+                return (Result<OperationResponse>.Conflict(
+                        "Stock cannot satisfy every line of this invoice.",
+                        new ValidationError(
+                            line.ProductId.ToString(),
+                            movement.ErrorMessage ?? "The line was rejected.")),
+                    [new RejectedLine(line.ProductId, line.Quantity, stock.Quantity)]);
 
             lines.Add(new OperationLine(line.ProductId, line.Quantity, stock.Quantity));
         }
@@ -141,10 +154,14 @@ public sealed class InvoicePrintRequestedHandler(
         await outbox.PublishAsync(new StockOperationApplied(message.InvoiceId), cancellationToken);
         await outbox.SaveChangesAndFlushAsync(cancellationToken);
 
-        return new OperationResponse(message.InvoiceId, lines);
+        return (new OperationResponse(message.InvoiceId, lines), []);
     }
 
-    private StockOperationRejected Reject(Guid invoiceId, Result result)
+    private StockOperationRejected Reject(
+        Guid invoiceId,
+        Result result,
+        string code,
+        IReadOnlyList<RejectedLine> lines)
     {
         if (result.Status is not (ResultStatus.Conflict or ResultStatus.Invalid))
             throw new InvalidOperationException(
@@ -157,7 +174,7 @@ public sealed class InvoicePrintRequestedHandler(
             invoiceId,
             reason);
 
-        return new StockOperationRejected(invoiceId, reason);
+        return new StockOperationRejected(invoiceId, reason) { Code = code, Lines = lines };
     }
 
     private static string Describe(Result result)

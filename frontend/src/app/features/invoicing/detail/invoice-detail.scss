@@ -97,3 +97,33 @@ table {
 .panel mat-progress-bar {
   margin-top: 1.5rem;
 }
+
+.failure-panel {
+  margin-top: 1rem;
+}
+
+.failure-panel .hint {
+  margin-top: 0;
+}
+
+.shortages {
+  margin: 0.5rem 0 0;
+  padding-left: 2.25rem;
+  font-size: 0.875rem;
+  color: var(--mat-sys-error);
+}
+
+.shortages li {
+  margin-top: 0.15rem;
+}
+
+.raw-reason {
+  margin: 0.5rem 0 0 2.25rem;
+  font-size: 0.8125rem;
+  opacity: 0.75;
+}
+
+tr.failed td {
+  background: var(--mat-sys-error-container);
+  color: var(--mat-sys-on-error-container);
+}
