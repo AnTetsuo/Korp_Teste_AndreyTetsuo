@@ -1,3 +1,5 @@
+using Application.Invoices.PrintOutcome;
+using Application.Messaging.Contracts;
 using Domain.Common;
 using Domain.Invoices;
 using Domain.Invoices.Enums;
@@ -341,6 +343,21 @@ public class InvoiceTests
 
         invoice.ShouldSatisfyAllConditions(
             () => invoice.FailureCode.ShouldBeNull(),
+            () => invoice.FailureLines.ShouldBeEmpty());
+    }
+
+    [Fact]
+    public void FailPrinting_FromTheTimeout_IsTellableApartFromARejection()
+    {
+        var invoice = Invoice.Open(1, [Item()]).Value;
+        invoice.BeginPrinting();
+
+        invoice.FailPrinting(
+            PrintTimeoutCheckHandler.GaveUpReason, PrintTimeoutCheckHandler.GaveUpCode);
+
+        invoice.ShouldSatisfyAllConditions(
+            () => invoice.FailureCode.ShouldBe("print_timeout"),
+            () => invoice.FailureCode.ShouldNotBe(StockOperationRejected.InsufficientStock),
             () => invoice.FailureLines.ShouldBeEmpty());
     }
 

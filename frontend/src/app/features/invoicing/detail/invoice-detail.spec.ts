@@ -13,6 +13,8 @@ const ID = '01a0263a-4083-7839-800b-26e01bd0c7b0';
 const URL = `http://localhost:3001/invoices/${ID}`;
 const REASON = 'Insufficient balance: 2 available, 999 requested.';
 const PT_REASON = 'BHS112613-3: 2 em estoque, 3 solicitadas.';
+const GAVE_UP = 'Stock service did not confirm the consumption; try printing again.';
+const PT_TIMEOUT = 'O estoque não confirmou esta impressão a tempo.';
 
 function rejected(): Partial<Invoice> {
   return {
@@ -20,6 +22,15 @@ function rejected(): Partial<Invoice> {
     failureReason: REASON,
     failureCode: 'insufficient_stock',
     failureLines: [{ productId: 'p-1', requested: 3, available: 2 }],
+  };
+}
+
+function timedOut(): Partial<Invoice> {
+  return {
+    status: 'Open',
+    failureReason: GAVE_UP,
+    failureCode: 'print_timeout',
+    failureLines: [],
   };
 }
 
@@ -105,6 +116,21 @@ describe('InvoiceDetail', () => {
     return (fixture?.nativeElement as HTMLElement).querySelector('button[mat-flat-button]');
   }
 
+  async function reachProcessing(): Promise<void> {
+    printButton()?.click();
+
+    backend
+      .expectOne({ url: `${URL}/print`, method: 'POST' })
+      .flush({ id: ID, number: 42, status: 'Processing', updatedAt: '2026-08-21T22:00:00Z' }, {
+        status: 202,
+        statusText: 'Accepted',
+      });
+
+    fixture?.detectChanges();
+    await vi.advanceTimersByTimeAsync(0);
+    answer(invoice({ status: 'Processing' }));
+  }
+
   it('renders the number, the items and the totals', async () => {
     await open(invoice());
 
@@ -175,17 +201,22 @@ describe('InvoiceDetail', () => {
   });
 
   it('softens the copy during the grace window, then reveals the reason', async () => {
-    await open(invoice(rejected()));
+    await open(invoice({ status: 'Open' }));
+    await reachProcessing();
+
+    await tick();
+    answer(invoice(timedOut()));
 
     expect(text()).toContain('Ainda confirmando com o estoque');
-    expect(text()).not.toContain(PT_REASON);
+    expect(text()).not.toContain(PT_TIMEOUT);
 
     for (let i = 0; i < GRACE_TICKS; i++) {
       await tick();
-      answer(invoice(rejected()));
+      answer(invoice(timedOut()));
     }
 
-    expect(text()).toContain(PT_REASON);
+    expect(text()).toContain(PT_TIMEOUT);
+    expect(text()).not.toContain(GAVE_UP);
     expect(text()).not.toContain('Ainda confirmando com o estoque');
 
     await tick();
@@ -193,13 +224,52 @@ describe('InvoiceDetail', () => {
   });
 
   it('ends the grace window early when a late confirmation closes the invoice', async () => {
-    await open(invoice(rejected()));
+    await open(invoice({ status: 'Open' }));
+    await reachProcessing();
+
+    await tick();
+    answer(invoice(timedOut()));
 
     await tick();
     answer(invoice({ status: 'Closed', closedAt: '2026-08-21T22:00:00Z' }));
 
     expect(text()).toContain('Fechada');
-    expect(text()).not.toContain(PT_REASON);
+    expect(text()).not.toContain(PT_TIMEOUT);
+
+    await tick();
+    backend.verify();
+  });
+
+  it('reveals the reason at once when a rejected invoice is merely opened', async () => {
+    await open(invoice(rejected()));
+
+    expect(text()).not.toContain('Ainda confirmando');
+    expect(text()).toContain(PT_REASON);
+
+    await tick();
+    backend.verify();
+  });
+
+  it('does not soften a timeout reopening left over from an earlier visit', async () => {
+    await open(invoice(timedOut()));
+
+    expect(text()).not.toContain('Ainda confirmando');
+    expect(text()).toContain(PT_TIMEOUT);
+    expect(text()).not.toContain(GAVE_UP);
+
+    await tick();
+    backend.verify();
+  });
+
+  it('does not soften a rejection that stock already answered', async () => {
+    await open(invoice({ status: 'Open' }));
+    await reachProcessing();
+
+    await tick();
+    answer(invoice(rejected()));
+
+    expect(text()).not.toContain('Ainda confirmando');
+    expect(text()).toContain(PT_REASON);
 
     await tick();
     backend.verify();
@@ -270,34 +340,20 @@ describe('InvoiceDetail', () => {
     await open(invoice({ status: 'Open' }));
     const snackBar = vi.spyOn(TestBed.inject(MatSnackBar), 'open');
 
-    printButton()?.click();
-    backend
-      .expectOne({ url: `${URL}/print`, method: 'POST' })
-      .flush({ id: ID, number: 42, status: 'Processing', updatedAt: '2026-08-21T22:00:00Z' }, {
-        status: 202,
-        statusText: 'Accepted',
-      });
+    await reachProcessing();
 
-    fixture?.detectChanges();
-    await vi.advanceTimersByTimeAsync(0);
+    await tick();
     answer(invoice(rejected()));
-
-    for (let i = 0; i < GRACE_TICKS; i++) {
-      await tick();
-      answer(invoice(rejected()));
-    }
 
     expect(snackBar).not.toHaveBeenCalled();
     expect(text()).toContain(PT_REASON);
+
+    await tick();
+    backend.verify();
   });
 
   it('marks only the failing row, and never shows a raw product id', async () => {
     await open(invoice(rejected()));
-
-    for (let i = 0; i < GRACE_TICKS; i++) {
-      await tick();
-      answer(invoice(rejected()));
-    }
 
     const rows = (fixture?.nativeElement as HTMLElement).querySelectorAll('tr[mat-row]');
 

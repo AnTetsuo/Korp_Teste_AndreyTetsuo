@@ -26,7 +26,7 @@ import {
 } from 'rxjs';
 
 import { InvoicesApi } from '../../../core/api/invoicing/invoices.api';
-import { InvoiceDetail as Invoice } from '../../../core/api/invoicing/models';
+import { PRINT_TIMEOUT, InvoiceDetail as Invoice } from '../../../core/api/invoicing/models';
 import { ApiError, describeForSupport } from '../../../core/http/problem-details';
 import { InvoiceStatusPipe } from '../../../shared/invoice-status.pipe';
 import { describePrintFailure } from '../../../shared/print-failure';
@@ -165,14 +165,28 @@ export class InvoiceDetail {
   }
 
   private watch(id: string): Observable<DetailState> {
-    return timer(0, POLL_INTERVAL_MS).pipe(
-      switchMap(() => this.api.get(id)),
-      takeWhile((invoice) => invoice.status === 'Processing', true),
-      switchMap((invoice) =>
-        invoice.status === 'Open' && invoice.failureReason !== null
-          ? this.settleAfterFailure(id, invoice)
-          : of<DetailState>({ status: 'ready', invoice, watching: false }),
-      ),
+    return defer(() => {
+      let sawProcessing = false;
+
+      return timer(0, POLL_INTERVAL_MS).pipe(
+        switchMap(() => this.api.get(id)),
+        tap((invoice) => (sawProcessing ||= invoice.status === 'Processing')),
+        takeWhile((invoice) => invoice.status === 'Processing', true),
+        switchMap((invoice) =>
+          this.awaitsLateConfirmation(sawProcessing, invoice)
+            ? this.settleAfterFailure(id, invoice)
+            : of<DetailState>({ status: 'ready', invoice, watching: false }),
+        ),
+      );
+    });
+  }
+
+  private awaitsLateConfirmation(sawProcessing: boolean, invoice: Invoice): boolean {
+    return (
+      sawProcessing &&
+      invoice.status === 'Open' &&
+      invoice.failureReason !== null &&
+      invoice.failureCode === PRINT_TIMEOUT
     );
   }
 

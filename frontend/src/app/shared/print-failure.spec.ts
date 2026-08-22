@@ -81,6 +81,21 @@ describe('describePrintFailure', () => {
     expect(failure?.lines[0]?.productCode).toBe('ghost');
   });
 
+  it('says nobody answered when the print timed out, and keeps the English out of it', () => {
+    const failure = describePrintFailure(
+      invoice({
+        failureReason: 'Stock service did not confirm the consumption; try printing again.',
+        failureCode: 'print_timeout',
+      }),
+    );
+
+    expect(failure?.headline).toBe(
+      'O estoque não confirmou esta impressão a tempo. Tente imprimir novamente.',
+    );
+    expect(failure?.rawReason).toBeNull();
+    expect(failure?.lines).toEqual([]);
+  });
+
   it('keeps the original reason when an older invoice carries no structured lines', () => {
     const failure = describePrintFailure(
       invoice({ failureReason: 'Stock rejected this invoice.', failureCode: null }),

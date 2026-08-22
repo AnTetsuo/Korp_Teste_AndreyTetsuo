@@ -51,6 +51,7 @@ export interface CreateInvoiceResponse {
 }
 
 export const INSUFFICIENT_STOCK = 'insufficient_stock';
+export const PRINT_TIMEOUT = 'print_timeout';
 
 export interface InvoiceFailureLine {
   readonly productId: string;

@@ -21,6 +21,8 @@ public sealed class PrintTimeoutCheckHandler(
     public const string GaveUpReason =
         "Stock service did not confirm the consumption; try printing again.";
 
+    public const string GaveUpCode = "print_timeout";
+
     public static TimeSpan FirstDelay => Backoff[0];
 
     public async Task HandleAsync(PrintTimeoutCheck message, CancellationToken cancellationToken)
@@ -53,7 +55,7 @@ public sealed class PrintTimeoutCheckHandler(
             return;
         }
 
-        var transition = invoice.FailPrinting(GaveUpReason);
+        var transition = invoice.FailPrinting(GaveUpReason, GaveUpCode);
 
         if (!transition.IsSuccess)
         {

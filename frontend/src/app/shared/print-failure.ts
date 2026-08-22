@@ -1,4 +1,4 @@
-import { INSUFFICIENT_STOCK, InvoiceDetail } from '../core/api/invoicing/models';
+import { INSUFFICIENT_STOCK, PRINT_TIMEOUT, InvoiceDetail } from '../core/api/invoicing/models';
 
 export interface PrintFailureLine {
   readonly productId: string;
@@ -39,12 +39,17 @@ export function describePrintFailure(invoice: InvoiceDetail): PrintFailure | nul
   return {
     headline: headlineFor(invoice.failureCode, lines.length),
     lines,
-    rawReason: lines.length === 0 ? invoice.failureReason : null,
+    rawReason:
+      lines.length === 0 && invoice.failureCode !== PRINT_TIMEOUT ? invoice.failureReason : null,
     productIds: new Set(lines.map((line) => line.productId)),
   };
 }
 
 function headlineFor(code: string | null, lineCount: number): string {
+  if (code === PRINT_TIMEOUT) {
+    return 'O estoque não confirmou esta impressão a tempo. Tente imprimir novamente.';
+  }
+
   if (code !== INSUFFICIENT_STOCK || lineCount === 0) {
     return 'O estoque recusou esta nota.';
   }
